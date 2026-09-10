@@ -15,3 +15,4 @@ output/gis/*.tif.ovr
 output/maps/*.pdf
 output/maps/geopdf/
 output/cable/*.png
+output/_superseded*/

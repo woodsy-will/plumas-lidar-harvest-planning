@@ -24,6 +24,8 @@ import os
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+plt.rcParams.update({"font.family": "sans-serif", "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"], "axes.spines.top": False, "axes.spines.right": False,
+                     "axes.titlesize": 9.5, "axes.labelsize": 9, "xtick.labelsize": 8, "ytick.labelsize": 8, "legend.fontsize": 8, "axes.grid": True, "grid.alpha": 0.25})
 import numpy as np
 from osgeo import gdal, ogr
 from scipy.ndimage import map_coordinates
@@ -89,22 +91,28 @@ for row in summary:
     if not picks:
         picks = sorted(cs, key=lambda c: -c["defl"])[:3]
     if picks:
-        fig, axes = plt.subplots(len(picks), 1, figsize=(11, 2.3 * len(picks) + 0.8), squeeze=False)
-        for ax, c in zip(axes[:, 0], picks):
-            d, z, chord, clr = profile(c["x0"], c["y0"], c["x1"], c["y1"]); mid = len(d) // 2
+        profs = [profile(c["x0"], c["y0"], c["x1"], c["y1"]) for c in picks]
+        heights = [min(4.2, max(1.6, 9.6 * (float(pz[1].max() + TOWER + 30 - pz[1].min()) / max(1.0, pz[0][-1])))) for pz in profs]   # true-scale panel heights
+        fig, axes = plt.subplots(len(picks), 1, figsize=(11, sum(heights) + 0.9), squeeze=False, gridspec_kw={"height_ratios": heights})
+        for ax, c, (d, z, chord, clr) in zip(axes[:, 0], picks, profs):
+            mid = len(d) // 2; ax.set_aspect("equal", adjustable="box")
             ax.fill_between(d, z.min() - 25, z, color="#c8b48c", alpha=0.6); ax.plot(d, z, color="#5a4a2a", lw=1.2, label="ground")
             ax.plot(d, chord, color=BLUE, lw=1.4, label=f"chord, {TOWER:.0f} ft tower, {ANCHOR:.0f} ft anchor")
             ax.plot([0, 0], [z[0], z[0] + TOWER], color=BLUE, lw=3); ax.plot([d[-1], d[-1]], [z[-1], z[-1] + ANCHOR], color="#333", lw=3)
             ax.annotate("", (d[mid], z[mid]), (d[mid], chord[mid]), arrowprops=dict(arrowstyle="<->", color=VERMILLION, lw=1.2))
-            ax.text(d[mid] + 8, (z[mid] + chord[mid]) / 2, f"{c['defl']:.1f} % deflection", color=VERMILLION, fontsize=8, va="center")
+            ax.text(d[mid] + 8, (z[mid] + chord[mid]) / 2, f"{c['defl']:.1f} % available deflection", color=VERMILLION, fontsize=8, va="center")
             imin = int(np.argmin(clr[1:-1])) + 1 if len(clr) > 2 else 0
             ax.plot(d[imin], z[imin], "v", color=VERMILLION, ms=6); ax.text(d[imin], z[imin] - 12, f"min clearance {c['clear']:.0f} ft", fontsize=7.5, ha="center", color=VERMILLION)
             grade = (z[-1] - z[0]) / d[-1] * 100
             ax.set_title(f"Unit {uid}  landing {c['landing']}  bearing {c['bearing']:03d}  span {c['span']:.0f} ft  chord slope {grade:+.0f} %  "
                          f"{'downhill to landing' if c['downhill'] else 'uphill to landing'}  {c['cls']}  {'FEASIBLE' if c['feasible'] else 'not feasible'}", fontsize=9)
             ax.set_ylabel("ft"); ax.grid(alpha=0.3); ax.text(2, z[0] + TOWER + 4, "landing / tower", fontsize=7, color=BLUE); ax.text(d[-1], z[-1] + ANCHOR + 4, "tailhold", fontsize=7, ha="right", color="#333")
-        axes[-1, 0].set_xlabel("distance from landing, ft"); axes[0, 0].legend(loc="upper right", fontsize=8)
-        fig.tight_layout(); fig.savefig(os.path.join(OUT, f"Unit_{uid}_profiles.png"), dpi=DPI); plt.close(fig)
+        axes[-1, 0].set_xlabel("horizontal distance from landing, ft"); axes[0, 0].legend(loc="upper right", fontsize=8)
+        fig.tight_layout(); fig.canvas.draw()
+        for ax in axes[:, 0]:                                     # profiles are drawn at true scale; state it, as profile drawings require
+            bb = ax.get_window_extent(); xr = ax.get_xlim(); yr = ax.get_ylim(); ve = ((xr[1] - xr[0]) / bb.width) / ((yr[1] - yr[0]) / bb.height)
+            ax.text(0.995, 0.04, f"no vertical exaggeration (V.E. {ve:.2f}x)", transform=ax.transAxes, ha="right", fontsize=7, color="#555")
+        fig.savefig(os.path.join(OUT, f"Unit_{uid}_profiles.png"), dpi=DPI); plt.close(fig)
     # route table figure: distinct settings - the best corridor from each landing, then further corridors at least
     # 30 degrees from any already listed for that landing, up to 12 rows
     rows = []
@@ -122,7 +130,7 @@ for row in summary:
         cells = [[f"L{c['landing']}-{c['bearing']:03d}", f"{c['span']:.0f}", f"{((elev_at([c['x1']],[c['y1']])[0]-elev_at([c['x0']],[c['y0']])[0])/c['span']*100):+.0f} %", f"{c['defl']:.1f} %", f"{c['clear']:.0f}",
                   "downhill" if c["downhill"] else "uphill", c["cls"], "70 ft only" if (c["feasible70"] and not c["feasible"]) else "50 ft"] for c in rows]
         fig, ax = plt.subplots(figsize=(10, 0.35 * len(cells) + 1.4)); ax.axis("off")
-        tb = ax.table(cellText=cells, colLabels=["Route", "Span ft", "Chord slope", "Deflection", "Min clear ft", "Yarding", "System", "Tower"], loc="center", cellLoc="center")
+        tb = ax.table(cellText=cells, colLabels=["Route", "Span, ft", "Chord slope", "Avail. deflection", "Min clearance, ft", "Yarding", "System", "Tower"], loc="center", cellLoc="center")
         tb.auto_set_font_size(False); tb.set_fontsize(8); tb.scale(1, 1.25)
         for (r, cidx), cell in tb.get_celld().items():
             if r == 0:
@@ -130,7 +138,7 @@ for row in summary:
             elif cidx == 3:
                 v = float(cells[r - 1][3].rstrip(" %")); cell.set_facecolor("#a6d8f0" if v >= 9 else "#f0e442" if v >= 7 else "#f4b183")
         ax.set_title(f"Unit {uid} ({row['method']}, {float(row['acres']):.0f} ac): best feasible routes  |  EYD {row['eyd_ft']} ft, AYD {row['ayd_ft']} ft  |  coverage {row['coverage_pct']} %  |  {row['equipment']}  |  {row['difficulty']}", fontsize=9)
-        fig.text(0.5, 0.05, "Route = landing number and bearing. Chord slope: negative = tailhold below the landing (uphill yarding).\nDeflection shading: blue 9 % and over, yellow 7 to 9 %, orange under 7 % (planning minimum 6 %).", ha="center", va="bottom", fontsize=7.5, color="#333")
+        fig.text(0.5, 0.05, "Route = landing number and bearing. Span is horizontal. Available deflection = chord-to-ground height at mid-span as a percent of horizontal span. Chord slope: negative = tailhold below the landing (uphill yarding).\nDeflection shading: blue 9 % and over, yellow 7 to 9 %, orange under 7 % (planning minimum 6 %).", ha="center", va="bottom", fontsize=7.5, color="#333")
         fig.tight_layout(rect=(0, 0.1, 1, 1)); fig.savefig(os.path.join(OUT, f"Unit_{uid}_routes.png"), dpi=DPI); plt.close(fig)
     # corridor map: every corridor cast, feasible in blue, over the hillshade
     if cs:
@@ -166,7 +174,7 @@ ax.scatter(xs, ys, s=8, c=cols, alpha=0.5)
 ax.axhline(0, color="k", lw=0.8)
 ax.text(1850, 60, "tailhold above landing: DOWNHILL yarding to the landing\nplan for 1/3 to 1/2 of uphill capability (USFS Cable Logging Systems)", fontsize=8, va="center")
 ax.text(1850, -60, "tailhold below landing: UPHILL yarding to the landing", fontsize=8, va="center")
-ax.set_xlim(0, 3600); ax.set_ylim(-100, 100); ax.set_xlabel("feasible corridor span, ft"); ax.set_ylabel("chord slope, % (tailhold minus landing)")
+ax.set_xlim(0, 3600); ax.set_ylim(-100, 100); ax.set_xlabel("feasible corridor span (horizontal), ft"); ax.set_ylabel("chord slope, % (tailhold minus landing)")
 ax.set_title("Fig 5. Equipment selection matrix: feasible corridors by span and chord slope\n(blue = cable units, orange = tractor units checked as if cable)", fontsize=10); ax.legend(loc="upper right", fontsize=8); ax.grid(alpha=0.3)
 fig.tight_layout(); fig.savefig(os.path.join(OUT, "Fig5_equipment_matrix.png"), dpi=DPI); plt.close(fig)
 # Fig 6: yarding direction by unit
@@ -183,7 +191,7 @@ ax.axhline(35, color="k", ls="--", lw=1); ax.text(0.5, 36, "35 % ground-based li
 fig.tight_layout(); fig.savefig(os.path.join(OUT, "Fig1_slope_by_unit.png"), dpi=DPI); plt.close(fig)
 fig, ax = plt.subplots(figsize=(9, 5))
 ax.hist([c["defl"] for c in all_c], bins=40, color=BLUE, alpha=0.85); ax.axvline(MIN_DEFLECTION, color=VERMILLION, ls="--"); ax.text(MIN_DEFLECTION + 0.2, ax.get_ylim()[1] * 0.9, "6 % planning minimum", color=VERMILLION, fontsize=8)
-ax.set_xlabel("mid-span deflection, % of span"); ax.set_ylabel("corridors"); ax.set_title("Fig 2. Available deflection across all corridors, 50 ft tower")
+ax.set_xlabel("available mid-span deflection (chord to ground), % of horizontal span"); ax.set_ylabel("corridors"); ax.set_title("Fig 2. Available mid-span deflection across all corridors cast, 50 ft tower, 10 ft tailhold anchor")
 fig.tight_layout(); fig.savefig(os.path.join(OUT, "Fig2_deflection.png"), dpi=DPI); plt.close(fig)
 fig, ax = plt.subplots(figsize=(9, 5))
 cls = [c for _, c in SPAN_CLASSES]; counts = [sum(1 for c in all_c if c["feasible"] and c["cls"] == k) for k in cls]
@@ -195,6 +203,6 @@ fig, ax = plt.subplots(figsize=(9, 5))
 ax.scatter([float(r["coverage_pct"]) for r in summary], [float(r["mean_deflection_pct"]) for r in summary], s=[max(20, float(r["acres"]) * 2) for r in summary], c=[{"Standard": BLUE, "Moderate": YELLOW, "High": VERMILLION}[r["difficulty"]] for r in summary], alpha=0.85, edgecolor="k")
 for r in summary:
     ax.annotate(str(r["unit_id"]), (float(r["coverage_pct"]), float(r["mean_deflection_pct"])), fontsize=7, ha="center", va="center")
-ax.set_xlabel("unit coverage by feasible corridors, %"); ax.set_ylabel("mean available deflection, %"); ax.set_title("Fig 4. Yarding difficulty (blue standard, yellow moderate, vermillion high; bubble area = acres)")
+ax.set_xlabel("unit coverage by feasible corridors, %"); ax.set_ylabel("mean available deflection of feasible corridors, %"); ax.set_title("Fig 4. Yarding difficulty (blue standard, yellow moderate, vermillion high; bubble area = acres)")
 fig.tight_layout(); fig.savefig(os.path.join(OUT, "Fig4_difficulty.png"), dpi=DPI); plt.close(fig)
 print("figures rebuilt for", len(summary), "units")

@@ -82,10 +82,12 @@ yarding direction by unit.
 A simulated BAF 20 cruise on a 300 ft grid: 798 plots, 8,722 trees, six planted recording errors. The QA
 pass caught all six and raised one further flag. Each unit gets a review sheet with stand density (basal
 area with sampling error, trees per acre, QMD, stand density index against the mixed-conifer maximum),
-CWHR size and density class, a sawtimber versus biomass split, a demonstration leave target, a cruise
-design check against the Region 5 sampling-error standard (FSH 2409.12: 18 % sawtimber, 25 % biomass, 20
-plots minimum, plots needed from the CV), a plot map, and the findings a crew lead would hand back. A
-sale-level QA table opens the merged review PDF; four units come up short of the 20-plot minimum.
+CWHR size and density class, a sawtimber versus biomass split, a leave target at 35 % of the basal-area-weighted
+FVS maximum SDI, a stand table by DBH class, a stock table by species, and a cruise design check with Student's t
+against the FSH 2409.12 standards (40 % per stratum, exhibit 01 for the sale as a whole), a plot map, and the
+findings a crew lead would hand back. A sale-level QA page opens the merged review PDF; every unit meets the
+stratum standard, the sale as a whole meets its 10 % standard, and four units fall short of the Region 5
+20-plot practice minimum.
 
 ### Standards followed
 

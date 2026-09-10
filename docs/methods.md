@@ -126,22 +126,32 @@ medium vegetation and the usual operational definition of canopy.
 ## Field-data review sheets (`06_review_sheets.py`)
 
 A simulated variable-radius cruise (BAF 20, 300 ft grid) is generated inside each unit from the canopy
-products, with a documented set of planted recording errors. The review sheet for each unit lists the
-plots, the checks that fired, stand metrics and a map, in the format used to hand a unit back to a crew.
+products, with a documented set of planted recording errors. The review sheet for each unit carries a stand
+summary, a stand table by 4-inch DBH class, a stock table by species, a plot map, the QA findings and the plot
+list, in the format used to hand a unit back to a crew. The workbook `cruise_data.xlsx` holds the plots, trees,
+unit summary, stand and stock tables and a sheet of standards and assumptions.
 
-Stand metrics on the sheet: basal area with its sampling error, trees per acre, quadratic mean diameter,
-Reineke stand density index in the summation form against a maximum of 750 (the FVS Western Sierra
-default for Sierran mixed conifer), CWHR size class from QMD (3: 6 to 11 in, 4: 11 to 24 in, 5: over 24 in)
-and density class from canopy cover (S under 25 %, P 25 to 39, M 40 to 59, D 60 and over), a sawtimber
-(10 in and larger) versus biomass split, and a demonstration leave target of 30 % of maximum SDI expressed
-as basal area. Volume uses a documented form-factor approximation, not regional equations.
+Computations and the standards they follow:
 
-Cruise design check: each unit's basal-area sampling error is reported at 95 % confidence (t taken as 2)
-against the Region 5 timber cruising standard in FSH 2409.12 chapter 40, which sets the allowable error by
-sale value and product; the sheet uses 18 % for a small sawtimber sale and 25 % where more than half the
-trees are biomass, with a minimum of 20 plots per stratum. Plots needed are (t x CV / E)^2, floored at the
-minimum. Units that miss the standard are marked SHORT on the sheet with the number of plots to add, and
-the first page of `Unit_Reviews.pdf` carries the sale-level table (`output/review/qa_summary.csv`).
+| Quantity | Method | Standard or source |
+|---|---|---|
+| Basal area | plot BA = trees in x BAF; tree BA = 0.005454 x DBH^2 | standard mensuration |
+| Trees per acre | per-tree expansion BAF / tree BA, averaged over plots | variable-radius sampling |
+| Sampling error | t(0.975, n-1) x SE of plot BA / mean, in percent | FSH 2409.12 ch. 40 sec. 41.1: 95 % confidence, t = 2 for large n |
+| Stratum standard | 40 % per unit | FSH 2409.12 ch. 40 sec. 41.1(5)(b), tree-measurement sales |
+| Sale-as-a-whole | stratified estimate with area weights; standard from exhibit 01 by estimated sale value (10 % above $120,000) | FSH 2409.12 ch. 40 sec. 41.1 exhibit 01; value placed with an assumed $50/MBF |
+| Plots for the standard | (t x CV / E)^2; the Region 5 practice minimum of 20 plots is reported separately | FSH 2409.12 ch. 30 |
+| SDI | summation form, sum of TPA x (DBH/10)^1.605 | Reineke 1933; Shaw 2000 |
+| SDI maximum | basal-area-weighted mean of species maxima: PP 365, WF 800, DF 570, SP 561, IC 576 | FVS Western Sierra variant overview, table 3.5.1 |
+| Density zones and target | 35 % of maximum = lower limit of full occupancy, 60 % = onset of competition mortality; leave target 35 % expressed as BA | Long 1985; Long and Shaw 2012 |
+| Cubic volume | BA x total height x form factor 0.42, net of recorded defect | form-factor approximation (Avery and Burkhart); regional NVEL equations would replace it in practice |
+| Board feet | 5.5 Scribner bf per cu ft | Keegan et al. 2010: California mills among the highest ratios in the West |
+| Biomass | 60 lb per cu ft green | conifer green-density assumption |
+| CWHR | size from QMD (3: 6 to 11 in, 4: 11 to 24, 5: over 24); density from cover (S 10 to 24 %, P 25 to 39, M 40 to 59, D 60 and over) | California Wildlife Habitat Relationships |
+
+Tables follow publication style: title above, horizontal rules only, footnotes and sources below, units in the
+headers. Skyline profiles are drawn at true scale with the vertical exaggeration stated on each panel, and
+"available deflection" is labeled as such: chord-to-ground height at mid-span as a percent of horizontal span.
 
 ## Output standards, checked by measurement
 
