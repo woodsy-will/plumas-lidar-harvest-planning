@@ -1,0 +1,25 @@
+unit_id,method,acres,slope_mean,landings,landings_used,corridors,corridors_feasible,corridors_feasible_70ft,coverage_pct,mean_deflection_pct,downhill_share_pct,max_feasible_span_ft,equipment,difficulty,chosen_landings,eyd_ft,ayd_ft,uphill_share_pct
+101,Tractor,97.4,9.6,10,4,148,18,31,51.4,7.1,66.7,2368,Long-span yarder,High,4 5 3 6,2368,1579,33.3
+102,Tractor,36.3,12.3,9,3,131,16,40,23.7,9.7,25.0,773,Small yarder,Moderate,7 8 3,773,516,75.0
+103,Tractor,53.4,23.4,11,4,270,59,76,72.8,9.7,61.0,1835,Long-span yarder,Moderate,10 7 3 6,1835,1224,39.0
+401,Cable,29.5,42.2,3,0,68,0,0,0.0,0.0,0.0,0,No feasible corridor,High,,0,0,100.0
+104,Tractor,111.5,13.5,8,1,236,17,25,4.0,9.3,29.4,635,Small yarder,Moderate,7,635,424,70.6
+402,Cable,38.9,53.9,14,3,374,182,188,69.7,14.9,69.2,1931,Long-span yarder,Moderate,14 7 3,1931,1288,30.8
+105,Tractor,57.4,20.7,9,4,211,62,76,69.1,9.9,38.7,1163,Medium yarder,Standard,9 3 2 4,1163,776,61.3
+106,Tractor,88.6,14.4,12,4,265,60,82,32.3,10.4,65.0,1062,Medium yarder,Moderate,7 5 6 9,1062,708,35.0
+107,Tractor,95.3,19.5,10,2,246,38,48,14.4,10.7,44.7,1020,Medium yarder,Moderate,7 8,1020,680,55.3
+403,Cable,34.0,43.2,21,2,551,124,155,52.4,14.6,29.8,2989,Long-span yarder,Moderate,3 6,2989,1994,70.2
+108,Tractor,63.3,18.3,10,3,255,68,80,23.8,10.1,36.8,751,Small yarder,Moderate,1 8 6,751,501,63.2
+109,Tractor,72.9,14.3,10,3,263,30,35,21.3,10.2,43.3,1013,Medium yarder,Moderate,9 2 3,1013,676,56.7
+404,Cable,51.2,52.8,53,4,2022,205,241,61.2,12.1,2.4,3493,Intermediate support needed,Moderate,9 41 42 23,3493,2330,97.6
+110,Tractor,62.0,23.9,9,2,157,10,15,13.9,10.3,30.0,832,Small yarder,Moderate,4 5,832,555,70.0
+111,Tractor,55.7,18.5,11,3,164,20,29,16.9,9.9,35.0,981,Small yarder,Moderate,7 6 2,981,654,65.0
+112,Tractor,80.5,17.1,11,3,203,75,88,56.9,10.1,70.7,2423,Long-span yarder,Moderate,8 11 3,2423,1616,29.3
+113,Tractor,73.2,22.2,10,1,91,13,16,8.8,7.5,100.0,1342,Medium yarder,High,10,1342,895,0.0
+405,Cable,42.6,50.7,33,3,1464,261,294,41.9,11.8,18.0,1393,Medium yarder,Moderate,8 1 24,1393,929,82.0
+114,Tractor,116.3,14.4,12,4,298,78,106,44.3,12.7,76.9,1950,Long-span yarder,Moderate,6 7 3 9,1950,1301,23.1
+115,Tractor,84.0,13.9,11,4,291,94,109,36.1,9.0,75.5,1174,Medium yarder,Moderate,3 8 6 9,1174,783,24.5
+116,Tractor,89.2,14.0,11,2,245,23,30,11.4,8.0,82.6,608,Small yarder,High,7 8,608,406,17.4
+117,Tractor,82.2,21.7,11,3,203,28,33,30.6,8.7,50.0,1332,Medium yarder,Moderate,9 10 3,1332,888,50.0
+118,Tractor,70.2,14.9,12,3,343,63,82,19.3,11.8,47.6,779,Small yarder,Moderate,10 2 6,779,520,52.4
+406,Cable,35.1,47.8,3,2,41,9,14,70.2,7.0,0.0,2645,Long-span yarder,Moderate,2 3,2645,1764,100.0

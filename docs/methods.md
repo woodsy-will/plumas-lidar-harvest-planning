@@ -1,0 +1,162 @@
+# Methods
+
+Every number in this project is computed from public data by the scripts in `scripts/`. This note records
+the rules and thresholds so a reviewer can judge them, and so the units are read as a method demonstration
+rather than a proposal.
+
+## Coordinate system and units
+
+California State Plane Zone 2, NAD83, US survey feet (EPSG:2226). Heights in feet. USGS delivers the LiDAR
+in EPSG:5070 meters; it is reprojected and scaled on the way in.
+
+## LiDAR source (`ept_fetch.py`)
+
+The 2018 survey is read from the USGS Entwine (EPT) copy on Amazon rather than the staged tiles, which served
+at a few hundred KB/s. Every octree node whose cube intersects the AOI is downloaded at depth 8 and below;
+the coarse levels above depth 8 hold about 0.5 % of the AOI's points and are omitted. Node files are plain
+LAZ in EPSG:3857 with classification intact, so the content matches the tiles.
+
+## Terrain and canopy products (`02_build_terrain.py`)
+
+| Product | Rule |
+|---|---|
+| DTM, 3 ft | class 2 (ground) returns, inverse-distance weighting, 8-cell search window; small holes filled by GDAL FillNodata within 50 cells |
+| DSM, 3 ft | first returns, maximum |
+| CHM, 3 ft | height above the DTM of all non-noise returns, maximum, clipped to 0 to 300 ft |
+| Slope, aspect, hillshade | GDAL DEMProcessing on the DTM; slope in percent |
+| Canopy cover | share of CHM cells above 6.5 ft in a 66 ft square window |
+| Dominant height | 95th percentile of the CHM in a 66 ft window |
+| Yarding class | slope averaged over 99 ft: ground-based at or below 35 %, marginal 35 to 50 %, cable above 50 % |
+
+The 35 % ground-based limit and the cable ground above it follow the Forest Service logging-systems
+convention used on Region 5 timber sales. The 99 ft averaging keeps single benches or cut banks from
+flipping a class.
+
+## Harvest-unit delineation (`03_delineate_units.py`)
+
+Operable ground is the intersection of:
+
+- the Community Protection treatment block, on National Forest land;
+- stream equipment exclusion zones, 100 ft each side of perennial streams and around waterbodies, 50 ft
+  intermittent, 25 ft ephemeral by NHD feature code, stay inside the unit boundary as an internal
+  restriction, the way layout crews draw units, and are netted out of the treatable acreage. The wider
+  riparian conservation areas (300 / 150 / 100 ft, Sierra Nevada Forest Plan Amendment) are mapped on
+  every sheet; treatment inside them is allowed under the project's design features;
+- a stand is present: canopy cover at least 30 % and dominant height at least 40 ft;
+- planning slope at or below 100 %, the practical ceiling for skyline ground. Planning slope is the
+  gradient of the DTM smoothed with a 15 ft Gaussian and averaged over 99 ft, so cut banks and
+  interpolation noise under dense canopy do not decide a unit;
+- within 3,500 ft of a road (National Forest System roads from EDW, supplemented by Census TIGER local
+  roads, which pick up the spur roads EDW omits).
+
+Cleaning: morphological open then close with a 99 ft kernel; regions smaller than 20 ac are dropped.
+
+Splitting: ground-based and cable ground are kept as separate regions. Regions larger than 150 ac are
+split toward 80 ac pieces by k-means clustering on position, smoothed elevation and aspect, so the
+boundaries between pieces fall where the ground turns, on ridges and in draws, the way a layout forester
+runs a unit line. A 99 ft majority filter keeps the pieces compact. Pieces under 20 ac are merged into
+their largest neighbor.
+
+Treatment method: Hand Thinning where dominant height is under 55 ft with cover at least 50 % (a
+small-diameter fuels stand); otherwise Tractor at mean slope 35 % or less, Cable above. Numbering:
+100-series Tractor, 400-series Cable, 700-series Hand Thinning, west to east.
+
+Not modeled, and stated so on the maps: wildlife protected activity centers, cultural sites, soils,
+existing skid trails, and anything else that only a field visit and the project record supply.
+
+## Cable-yarding feasibility (`04_cable_analysis.py`)
+
+For each Cable unit, and for Tractor units as a check:
+
+1. Candidate landings are road points within 500 ft of the unit, sampled every 200 ft along NFS and TIGER roads; a unit with no road that close is served from its nearest road points up to 2,000 ft away.
+2. From each landing, corridors are cast every 5 degrees (10 for tractor units) across the unit to a tailhold 100 ft beyond the
+   far boundary, and profiles sampled from the DTM every 10 ft.
+3. Skyline geometry: tower height 50 ft (medium yarder) with a 70 ft alternative, tailhold anchor 10 ft.
+   The chord runs from tower top to anchor. A corridor is feasible when the profile never rises within
+   10 ft of the chord and the mid-span deflection, chord height above ground at mid-span divided by span
+   length, is at least 6 %, the usual planning minimum for partial-suspension payloads.
+4. Span classes for equipment: up to 1,000 ft small yarder, up to 1,800 ft medium, up to 3,000 ft
+   long-span; longer spans are flagged as needing intermediate supports.
+5. Unit coverage is the share of the unit within 150 ft of a feasible corridor (lateral yarding reach).
+   Difficulty combines coverage, mean available deflection, ground slope and the downhill-yarding share.
+
+These are planning-level screens of the kind used to sort units by logging system before a field review,
+not an engineered skyline design. Two definitions follow the Forest Service *Cable Logging Systems* guide
+(Pacific Northwest Region, FS technology and development): external yarding distance is the slope distance
+from the landing to the far unit boundary, and average yarding distance is 0.667 of that for a fan-shaped
+setting. The same guide is the source for the direction rule reported on the sheets: downhill yarding
+capability is usually a third to a half of uphill capability, and landings should be placed to avoid blind
+leads and sidehill yarding. The deflection, clearance and tension relationship, and the 6 % planning
+minimum, follow the *Best Practice Guidelines for Cable Logging* (New Zealand FITEC, 2000): at 6 %
+deflection the loaded skyline tension is about 60 % higher than at 10 %, and below that payloads fall off
+quickly.
+
+## Map conventions
+
+The unit sheets and overview follow the layout of a Forest Service sale area map: cutting units filled by
+yarding method, the sale or treatment block boundary, streamcourse protection areas, existing transportation
+with road numbers, contour lines with labeled index contours, PLSS sections with township and range in the
+title block, a unit table, north arrow and bar scale on an 11x17 sheet. Contract clause references
+(B1.1, C6.42 and the like) are omitted because there is no contract.
+
+## Canopy height model and pits
+
+The CHM is the maximum first-return height in each 3 ft cell. Pit-free CHM algorithms (Khosravipour et al.
+2014) remove the below-canopy returns that leave single dark cells inside crowns; they are not applied here
+because every downstream use of the CHM is a 66 ft window statistic (cover, 95th percentile height) or a
+unit mean, which pits do not move. The 6.5 ft (2 m) cover threshold is the ASPRS boundary between low and
+medium vegetation and the usual operational definition of canopy.
+
+## Field-data review sheets (`06_review_sheets.py`)
+
+A simulated variable-radius cruise (BAF 20, 300 ft grid) is generated inside each unit from the canopy
+products, with a documented set of planted recording errors. The review sheet for each unit lists the
+plots, the checks that fired, stand metrics and a map, in the format used to hand a unit back to a crew.
+
+Stand metrics on the sheet: basal area with its sampling error, trees per acre, quadratic mean diameter,
+Reineke stand density index in the summation form against a maximum of 750 (the FVS Western Sierra
+default for Sierran mixed conifer), CWHR size class from QMD (3: 6 to 11 in, 4: 11 to 24 in, 5: over 24 in)
+and density class from canopy cover (S under 25 %, P 25 to 39, M 40 to 59, D 60 and over), a sawtimber
+(10 in and larger) versus biomass split, and a demonstration leave target of 30 % of maximum SDI expressed
+as basal area. Volume uses a documented form-factor approximation, not regional equations.
+
+Cruise design check: each unit's basal-area sampling error is reported at 95 % confidence (t taken as 2)
+against the Region 5 timber cruising standard in FSH 2409.12 chapter 40, which sets the allowable error by
+sale value and product; the sheet uses 18 % for a small sawtimber sale and 25 % where more than half the
+trees are biomass, with a minimum of 20 plots per stratum. Plots needed are (t x CV / E)^2, floored at the
+minimum. Units that miss the standard are marked SHORT on the sheet with the number of plots to add, and
+the first page of `Unit_Reviews.pdf` carries the sale-level table (`output/review/qa_summary.csv`).
+
+## Output standards, checked by measurement
+
+The deliverables were checked against current practice for map and figure output and the check is repeatable
+(the measurements below come from reading the files back with PyMuPDF, GDAL and Pillow).
+
+| Item | Standard | This project |
+|---|---|---|
+| Print PDF | text and linework vector, rasters at 300 dpi, fonts embedded | unit sheets and overview: vector text (Arial embedded), 9 raster images at 300 dpi, 3 to 5 MB per sheet |
+| Field PDF | georeferenced; Avenza reduces maps over 4 Mpx to 150 dpi and over 12 Mpx to 72 dpi on import | `output/maps/geopdf`: QGIS GeoPDF at 200 dpi (7.5 Mpx, under the 12 Mpx step); the print PDFs also carry ISO 32000 georeferencing |
+| Figures | 300 dpi for publication | all cable figures, route tables and profiles at 300 dpi; corridor maps and quicklooks at 200 dpi |
+| Web previews | sRGB, about 2,000 to 2,500 px long edge, JPEG quality 85 to 90 | 1,870 px map previews, 2,400 px figure previews, quality 88, 4:4:4 chroma so thin colored lines stay crisp |
+| Text contrast | WCAG 2.2 AA: 4.5:1 for text, 3:1 for graphics | every text and background pair measured is 5.4:1 or better; map text on the hillshade tints 8.8:1 |
+| Color vision | categories distinguishable under protan, deutan and tritan simulation | Okabe-Ito palette throughout; unit fills are hatched rather than translucent because a blue fill over the yellow marginal tint blended to a green only 9 CIE76 units from the ground-based tint; the current-unit outline is black with a white casing because red on orange collapsed to 1.7 units under protan simulation |
+| Type size | 6 pt minimum, 8 pt preferred on printed maps | smallest map text 7 pt (footer), tables 8 pt, legend 7.5 pt |
+| Metadata | title and author in the document, ISO / FGDC summary for GIS data | PDF document title and author set; GeoPackage carries layer descriptions and a project metadata table |
+
+The merged map series (about 110 MB at 300 dpi) and the GeoPDF folder are kept out of git and attached to the
+release instead.
+
+## Colors, metadata and deliverables
+
+Every categorical color on the maps and figures (yarding method, yarding class, uphill / downhill,
+difficulty, QA flags) is drawn from the Okabe-Ito color-blind-safe palette. The unit sheets and overview
+are exported twice: a print PDF with vector text and 300 dpi rasters, and a georeferenced GeoPDF at 200 dpi
+for Avenza Maps (QGIS rasterizes the whole sheet for GeoPDF, so the two cannot be one file). Each sheet
+states the data currency (LiDAR 2018, vectors as downloaded September 2026, NHD 1:24,000), the township and
+range the unit lies in, and the sources.
+
+`02b_quicklooks.py` draws the terrain and canopy products with a title, legend or color ramp, scale bar and
+north arrow. `08_package_gis.py` writes the distributable GIS deliverable, `output/gis/mohawk_west_slope.gpkg`,
+with a description on every layer and a project metadata table in FGDC / ISO 19115 summary fields (title,
+abstract, purpose, spatial reference, sources, accuracy, lineage, constraints), plus the four decision rasters
+as tiled, compressed GeoTIFFs with overviews. `docs/data_dictionary.md` defines every layer and field.

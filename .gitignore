@@ -1,0 +1,17 @@
+data/raw/laz/
+data/work/
+*.part
+__pycache__/
+*.aux.xml
+*.qgz~
+output/maps/Unit_*.pdf
+output/maps/Unit_*.png
+output/maps/Overview.pdf
+output/quicklooks/*.aux.xml
+data/raw/ept/
+data/raw/*.zip
+output/gis/*.tif
+output/gis/*.tif.ovr
+output/maps/*.pdf
+output/maps/geopdf/
+output/cable/*.png
