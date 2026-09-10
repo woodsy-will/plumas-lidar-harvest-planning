@@ -20,7 +20,7 @@ from qgis.core import (QgsCoordinateTransform, QgsMapLayerLegendUtils, QgsLegend
                        QgsUnitTypes, QgsVectorLayer, QgsVectorLayerSimpleLabeling, QgsRectangle, QgsLayoutItemMapOverview,
                        QgsLayoutItemShape, QgsLayoutItemPage, QgsLayerTreeLayer, QgsCategorizedSymbolRenderer, QgsRendererCategory,
                        QgsSimpleFillSymbolLayer, QgsLinePatternFillSymbolLayer, QgsFeatureRequest)
-from qgis.core import QgsRenderContext, QgsGeometry
+from qgis.core import QgsRenderContext, QgsGeometry, QgsSimpleLineSymbolLayer
 from qgis.PyQt.QtCore import QSizeF, Qt
 from qgis.PyQt.QtGui import QColor, QFont
 
@@ -28,7 +28,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAW, WORK, OUT = (os.path.join(ROOT, p) for p in (os.path.join("data", "raw"), os.path.join("data", "work"), os.path.join("output", "maps")))
 os.makedirs(OUT, exist_ok=True)
 CRS = QgsCoordinateReferenceSystem("EPSG:2226")
+import datetime
 TITLE = "Mohawk Valley West Slope - Harvest Unit Planning"
+DATE = datetime.date.today().strftime("%B %d, %Y"); SHEET = [1, 25]
 SUBTITLE = "Demonstration from public data (USGS 3DEP LiDAR 2018, USFS EDW, NHD, BLM). Not a Forest Service proposal."
 
 QgsApplication.setPrefixPath(r"C:\Program Files\QGIS 3.44.12\apps\qgis-ltr", True)
@@ -81,50 +83,62 @@ def label(layer, expr, size=9, color="0,0,0", bold=True, buffer=True):
 
 # ---- layers ----
 gpkg = os.path.join(WORK, "planning.gpkg"); cable = os.path.join(WORK, "cable.gpkg")
-hill = QgsRasterLayer(os.path.join(WORK, "hillshade.tif"), "Hillshade (LiDAR DTM)")
-ycls = QgsRasterLayer(os.path.join(WORK, "yarding_class.tif"), "Yarding class from planning slope")
+hill = QgsRasterLayer(os.path.join(WORK, "hillshade.tif"), "Hillshade (LiDAR DTM)"); hill.renderer().setOpacity(0.35)   # overview and inset: subdued grey base
+relief = QgsRasterLayer(os.path.join(WORK, "relief_tint.tif"), "Relief tint: yarding class from planning slope over the LiDAR hillshade")   # unit sheets: composed once in 02c
+ycls = QgsRasterLayer(os.path.join(WORK, "yarding_class.tif"), "Yarding class from planning slope (shaded by the LiDAR hillshade)")   # legend swatches only
 from qgis.core import QgsPalettedRasterRenderer
-classes = [QgsPalettedRasterRenderer.Class(1, QColor(0, 158, 115, 70), "Ground-based, slope <= 35 %"),
-           QgsPalettedRasterRenderer.Class(2, QColor(240, 228, 66, 110), "Marginal, 35-50 %"),
-           QgsPalettedRasterRenderer.Class(3, QColor(213, 94, 0, 110), "Cable, > 50 %")]
-ycls.setRenderer(QgsPalettedRasterRenderer(ycls.dataProvider(), 1, classes)); ycls.renderer().setOpacity(0.55)
+classes = [QgsPalettedRasterRenderer.Class(1, QColor(206, 232, 222), "Ground-based, slope 35 % and under"),
+           QgsPalettedRasterRenderer.Class(2, QColor(248, 241, 190), "Marginal, 35 to 50 %"),
+           QgsPalettedRasterRenderer.Class(3, QColor(243, 205, 178), "Cable, over 50 %")]
+ycls.setRenderer(QgsPalettedRasterRenderer(ycls.dataProvider(), 1, classes))
 block = vl(os.path.join(RAW, "aoi.geojson"), None, "Community Protection treatment block (USFS)"); block.setSubsetString("role = 'treatment_block'")
-block.renderer().setSymbol(fill("0,0,0,0", "190,0,0,255", 1.1)); block.renderer().symbol().symbolLayer(0).setStrokeStyle(Qt.DashLine)
-sections = vl(os.path.join(RAW, "plss_sections.geojson"), None, "PLSS sections (BLM)"); sections.renderer().setSymbol(fill("0,0,0,0", "90,90,90,160", 0.3)); label(sections, "\"FRSTDIVNO\"", 7, "80,80,80", False)
+block.renderer().setSymbol(fill("0,0,0,0", "0,0,0,255", 1.2)); block.renderer().symbol().symbolLayer(0).setStrokeStyle(Qt.DashLine)   # sale area boundary: heavy black dash
+sections = vl(os.path.join(RAW, "plss_sections.geojson"), None, "PLSS sections (BLM)"); sections.renderer().setSymbol(fill("0,0,0,0", "110,110,110,150", 0.25)); label(sections, "\"FRSTDIVNO\"", 7, "110,110,110", False)
 rca = vl(gpkg, "rca_buffers", "Riparian conservation area (SNFPA widths)")
-rca.renderer().setSymbol(fill("0,0,0,0", "0,114,178,255", 0.45)); rca.renderer().symbol().symbolLayer(0).setStrokeStyle(Qt.DashLine)
+rca.renderer().setSymbol(fill("0,112,192,38", "0,112,192,90", 0.15))   # mapped only: a pale wash, so it never competes with the units
 eez = vl(gpkg, "eez_buffers", "Stream equipment exclusion zone (inside units, netted out)")
-eez.renderer().setSymbol(hatch((0, 114, 178), (0, 114, 178), angle=45, dist=1.0, lw=0.3, ow=0.3))
+eez.renderer().setSymbol(hatch((0, 112, 192), (0, 112, 192), angle=45, dist=1.2, lw=0.2, ow=0.25))
 streams = vl(gpkg, "streams_aoi", "Streams (NHD)")
 cats = []
-for cls, name, w, st in (("perennial", "Perennial", 0.7, "solid"), ("intermittent", "Intermittent", 0.5, "dash"), ("ephemeral", "Ephemeral", 0.35, "dot"), ("other", "Other NHD", 0.4, "solid")):
-    cats.append(QgsRendererCategory(cls, line("20,90,200,255", w, st), name))
+for cls, name, w, st, col in (("perennial", "Perennial stream", 0.6, "solid", "0,112,192,255"), ("intermittent", "Intermittent stream", 0.4, "dash dot", "0,112,192,230"), ("ephemeral", "Ephemeral draw", 0.25, "dot", "60,140,210,200"), ("other", "Other NHD", 0.4, "solid", "0,112,192,255")):
+    cats.append(QgsRendererCategory(cls, line(col, w, st), name))   # USGS hydrography blue; class by line pattern, readable under any color vision
 streams.setRenderer(QgsCategorizedSymbolRenderer("class", cats))
-roads = vl(os.path.join(RAW, "fs_roads.geojson"), None, "NFS roads (EDW Road Core)"); roads.renderer().setSymbol(line("60,60,60,255", 0.9, "dash")); label(roads, "\"id\"", 7, "60,60,60", False)
-tiger = vl(os.path.join(RAW, "tiger_roads.geojson"), None, "Local roads (Census TIGER)"); tiger.renderer().setSymbol(line("110,110,110,255", 0.5, "dash"))
+roads = vl(os.path.join(RAW, "fs_roads.geojson"), None, "NFS roads (EDW Road Core)"); rsym = QgsLineSymbol(); rsym.deleteSymbolLayer(0)
+for col, w in (((255, 255, 255, 230), 1.4), ((40, 40, 40, 255), 0.6)):
+    sl = QgsSimpleLineSymbolLayer(); sl.setColor(QColor(*col)); sl.setWidth(w); sl.setPenCapStyle(Qt.RoundCap); rsym.appendSymbolLayer(sl)
+roads.renderer().setSymbol(rsym); label(roads, "\"id\"", 7, "40,40,40", True)
+tiger = vl(os.path.join(RAW, "tiger_roads.geojson"), None, "Local roads (Census TIGER)"); tiger.renderer().setSymbol(line("90,90,90,255", 0.4, "dash"))
 contours = vl(gpkg, "contours", "Contours, 40 ft (index 200 ft)")
-ccats = [QgsRendererCategory(0, line("120,90,60,170", 0.18), "40 ft"), QgsRendererCategory(1, line("120,90,60,230", 0.42), "200 ft index")]
+ccats = [QgsRendererCategory(0, line("160,82,45,150", 0.16), "40 ft"), QgsRendererCategory(1, line("160,82,45,220", 0.34), "200 ft index")]   # USGS contour brown, held back so the units lead
 contours.setRenderer(QgsCategorizedSymbolRenderer("index", ccats)); contours.setSubsetString("index = 1 OR index = 0")
 cl_s = QgsPalLayerSettings(); cl_s.fieldName = "round(\"elev\")"; cl_s.isExpression = True; cl_s.enabled = True; cl_s.placement = QgsPalLayerSettings.Line
-cl_f = QgsTextFormat(); cl_f.setFont(QFont("Arial", 6)); cl_f.setSize(6); cl_f.setColor(QColor(110, 80, 50)); cl_f.buffer().setEnabled(True); cl_f.buffer().setSize(0.6); cl_s.setFormat(cl_f)
+cl_f = QgsTextFormat(); cl_f.setFont(QFont("Arial", 6)); cl_f.setSize(6); cl_f.setColor(QColor(140, 75, 40)); cl_f.buffer().setEnabled(True); cl_f.buffer().setSize(0.7); cl_s.setFormat(cl_f)
 from qgis.core import QgsRuleBasedLabeling
 cl_root = QgsRuleBasedLabeling.Rule(None); cl_rule = QgsRuleBasedLabeling.Rule(cl_s); cl_rule.setFilterExpression("\"index\" = 1"); cl_root.appendChild(cl_rule)
 contours.setLabelsEnabled(True); contours.setLabeling(QgsRuleBasedLabeling(cl_root))
 units = vl(gpkg, "units", "Harvest units (demonstration)")
-# sale-map convention: units filled by yarding method (light for ground-based, dark hatched for skyline)
-METHOD_COLORS = {"Tractor": ((230, 159, 0), (160, 100, 0)), "Cable": ((0, 114, 178), (0, 90, 170)), "Hand Thinning": ((0, 158, 115), (0, 120, 90))}   # Okabe-Ito fill, darker outline
+# method colors: Okabe-Ito vermillion for tractor, blue for cable, green for hand thinning (dark for lines, pale for fills)
+METHOD_COLORS = {"Tractor": ((213, 94, 0), (247, 205, 178)), "Cable": ((0, 90, 170), (176, 208, 234)), "Hand Thinning": ((0, 120, 90), (190, 228, 214))}
 present = {f["method"] for f in units.getFeatures()}
-ucats = [QgsRendererCategory(m, hatch(c, o), m) for m, (c, o) in METHOD_COLORS.items() if m in present]
+# unit sheets: cased outline by method, interior open so the slope tint inside the unit stays readable (figure over a receded base)
+ucats = [QgsRendererCategory(m, cased_outline(inner=o, outer=(255, 255, 255), wi=0.9, wo=2.2), m) for m, (o, f_) in METHOD_COLORS.items() if m in present]
 units.setRenderer(QgsCategorizedSymbolRenderer("method", ucats)); label(units, "concat('Unit ', \"unit_id\", '\\n', \"method\")", 9)
-units_plain = vl(gpkg, "units", "Harvest units"); units_plain.setRenderer(QgsCategorizedSymbolRenderer("method", [QgsRendererCategory(m, fill("0,0,0,0", ",".join(str(v) for v in o) + ",255", 0.5), m) for m, (c, o) in METHOD_COLORS.items()]))
-cur = vl(gpkg, "units", "This unit (black line, white casing)"); cur.renderer().setSymbol(cased_outline())
+# overview and inset: sale-area-map convention, units filled by method with a dashed dark outline (cutting unit boundary)
+units_plain = vl(gpkg, "units", "Harvest units (demonstration), filled by yarding method")
+pcats = []
+for m, (o, f_) in METHOD_COLORS.items():
+    if m in present:
+        sym = fill(",".join(str(v) for v in f_) + ",255", ",".join(str(v) for v in o) + ",255", 0.7); sym.symbolLayer(0).setStrokeStyle(Qt.DashLine); pcats.append(QgsRendererCategory(m, sym, m))
+units_plain.setRenderer(QgsCategorizedSymbolRenderer("method", pcats)); label(units_plain, "concat('Unit ', \"unit_id\", '\\n', \"method\")", 8)
+units_inset = vl(gpkg, "units", "units_inset"); units_inset.setRenderer(QgsCategorizedSymbolRenderer("method", [QgsRendererCategory(c.value(), c.symbol().clone(), c.label()) for c in pcats]))
+cur = vl(gpkg, "units", "This unit"); cur.renderer().setSymbol(cased_outline(wi=1.6, wo=3.6))
 have_cable = os.path.exists(cable)
 if have_cable:
-    corr = vl(cable, "corridors", "Feasible skyline corridors from selected landings (logs travel toward the landing)"); corr.setSubsetString("feasible = 1"); corr.renderer().setSymbol(line("0,114,178,220", 0.35))
+    corr = vl(cable, "corridors", "Feasible skyline corridors from the selected landings (logs travel toward the landing)"); corr.setSubsetString("feasible = 1"); corr.renderer().setSymbol(line("0,0,0,170", 0.3))
     landings = vl(cable, "landings", "Selected landings on roads, this unit"); landings.setSubsetString("corridors_ok > 0")
     landings.renderer().setSymbol(QgsMarkerSymbol.createSimple({"name": "triangle", "color": "240,228,66,255", "outline_color": "0,0,0,255", "size": "2.8"}))
-layers = [cur, units] + ([landings, corr] if have_cable else []) + [roads, tiger, streams, eez, rca, sections, block, contours, ycls, hill]
-proj.addMapLayer(units_plain, False)
+layers = [cur, units] + ([landings, corr] if have_cable else []) + [roads, tiger, streams, eez, rca, sections, block, contours, relief]
+proj.addMapLayer(units_plain, False); proj.addMapLayer(units_inset, False)
 for l in layers:
     proj.addMapLayer(l, False)
 root = proj.layerTreeRoot()
@@ -163,7 +177,7 @@ def make_layout(name, feat=None, extent=None, scale=None):
     layout = QgsPrintLayout(proj); layout.initializeDefaults(); layout.setName(name)
     page = layout.pageCollection().page(0); page.setPageSize("ANSI B", QgsLayoutItemPage.Landscape)   # 17 x 11 in = 431.8 x 279.4 mm
     W, H = 431.8, 279.4
-    m = QgsLayoutItemMap(layout); m.setKeepLayerSet(True); m.setLayers(layers if feat is not None else [units, roads, tiger, streams, eez, rca, block, ycls, hill])
+    m = QgsLayoutItemMap(layout); m.setKeepLayerSet(True); m.setLayers(layers if feat is not None else [units_plain, roads, tiger, streams, eez, rca, sections, block, hill])
     m.attemptMove(QgsLayoutPoint(8, 22, QgsUnitTypes.LayoutMillimeters)); m.attemptResize(QgsLayoutSize(300, 226, QgsUnitTypes.LayoutMillimeters)); m.setFrameEnabled(True)
     m.setCrs(CRS)
     if extent is not None:
@@ -208,8 +222,8 @@ def make_layout(name, feat=None, extent=None, scale=None):
     leg = QgsLayoutItemLegend(layout); leg.setTitle("Legend"); leg.setAutoUpdateModel(False); leg.setLinkedMap(m)
     mdl = leg.model().rootGroup(); mdl.clear()
     has_sel = bool(feat is not None and summary.get(int(feat["unit_id"]), {}).get("chosen_landings", ""))
-    skip = {hill, sections} | (set() if (not have_cable or has_sel) else {landings, corr})
-    for l in ([x for x in layers if x not in skip] if feat is not None else [units, roads, tiger, streams, eez, rca, block, ycls]):
+    skip = {relief, sections} | (set() if (not have_cable or has_sel) else {landings, corr})
+    for l in ([x for x in layers if x not in skip] + [ycls] if feat is not None else [units_plain, roads, tiger, streams, eez, rca, block]):
         node = mdl.addLayer(l)
         if l is ycls:                                            # hide the raster band-name node, keep the three classes
             QgsMapLayerLegendUtils.setLegendNodeOrder(node, [1, 2, 3]); leg.model().refreshLayerLegend(node)
@@ -222,13 +236,15 @@ def make_layout(name, feat=None, extent=None, scale=None):
     leg.attemptMove(QgsLayoutPoint(px, ly, QgsUnitTypes.LayoutMillimeters)); leg.attemptResize(QgsLayoutSize(pw, 100, QgsUnitTypes.LayoutMillimeters)); layout.addLayoutItem(leg)
     sb = QgsLayoutItemScaleBar(layout); sb.setLinkedMap(m); sb.setStyle("Single Box"); sb.setUnits(QgsUnitTypes.DistanceFeet); sb.setUnitLabel("ft"); sb.setNumberOfSegments(2); sb.setNumberOfSegmentsLeft(0); sb.setUnitsPerSegment(1000 if scale and scale <= 12000 else 2000)
     sb.setHeight(2.5); sb.setLabelBarSpace(1); sb.attemptMove(QgsLayoutPoint(10, 250, QgsUnitTypes.LayoutMillimeters)); layout.addLayoutItem(sb)
+    add_label(layout, f"Scale 1:{int(round(m.scale())):,}   Contour interval 40 ft   North: grid, CA State Plane Zone 2", 100, 251, 150, 6, 8)
+    add_label(layout, f"Sheet {SHEET[0]} of {SHEET[1]}   {DATE}", 250, 251, 56, 6, 8, False, Qt.AlignRight)
     north = QgsLayoutItemPicture(layout); north.setPicturePath(os.path.join(QgsApplication.prefixPath(), "svg", "arrows", "NorthArrow_02.svg")); north.attemptMove(QgsLayoutPoint(290, 226, QgsUnitTypes.LayoutMillimeters)); north.attemptResize(QgsLayoutSize(14, 18, QgsUnitTypes.LayoutMillimeters)); layout.addLayoutItem(north)
     if feat is not None:
-        ins = QgsLayoutItemMap(layout); ins.setKeepLayerSet(True); ins.setLayers([cur, units_plain, block, hill]); ins.setCrs(CRS); ins.attemptMove(QgsLayoutPoint(px, 230, QgsUnitTypes.LayoutMillimeters)); ins.attemptResize(QgsLayoutSize(pw, 34, QgsUnitTypes.LayoutMillimeters)); ins.zoomToExtent(block_ext.buffered(1500)); ins.setFrameEnabled(True)
+        ins = QgsLayoutItemMap(layout); ins.setKeepLayerSet(True); ins.setLayers([cur, units_inset, block, hill]); ins.setCrs(CRS); ins.attemptMove(QgsLayoutPoint(px, 230, QgsUnitTypes.LayoutMillimeters)); ins.attemptResize(QgsLayoutSize(pw, 34, QgsUnitTypes.LayoutMillimeters)); ins.zoomToExtent(block_ext.buffered(1500)); ins.setFrameEnabled(True)
         ov = QgsLayoutItemMapOverview("cur", ins); ov.setLinkedMap(m); ov.setFrameSymbol(fill("255,0,0,40", "255,0,0,255", 0.5)); ins.overviews().addOverview(ov); layout.addLayoutItem(ins)
     add_label(layout, "Sources: USGS 3DEP CA_NoCAL_Wildfires_PlumasNF 2018 (QL1); USFS EDW Activity Project Areas and Road Core; USGS NHD; BLM SMA and PLSS; Census TIGER roads. "
                       "CA State Plane Zone 2, NAD83, US ft. Currency: LiDAR flown 2018; roads, NEPA areas, ownership and hydrography as downloaded Sept 2026; NHD at 1:24,000. Units delineated by the documented rules in docs/methods.md; "
-                      "not a proposal, no field verification. Wildlife, cultural and soils constraints not modeled. Colors: Okabe-Ito color-blind-safe palette; unit fills are hatched so they stay readable over the slope tints. "
+                      "not a proposal, no field verification. Wildlife, cultural and soils constraints not modeled. Symbology after Forest Service sale area maps (heavy dashed sale boundary, units as the figure over a receded base); Okabe-Ito color-blind-safe palette; USGS hydrography and contour conventions. "
                       "A georeferenced copy of this sheet (GeoPDF, output/maps/geopdf) opens in Avenza Maps with field position.",
               8, 262, 300, 14, 7)
     add_label(layout, "William Steinley  -  github.com/woodsy-will/plumas-lidar-harvest-planning", px, 266.5, pw, 6, 7, True, Qt.AlignRight)
@@ -254,19 +270,26 @@ cur.setSubsetString("unit_id = -1")
 lay, m = make_layout("Overview", None, block_ext.buffered(600), scale=24000); export(lay, "Overview")   # the quadrangle scale
 # per unit
 pages = []
+ONLY = {int(u) for u in os.environ.get("ONLY_UNITS", "").split()} if os.environ.get("ONLY_UNITS") else None   # ONLY_UNITS="404 101" renders a subset for design checks
 for f in units.getFeatures():
-    uid = f["unit_id"]; ext = f.geometry().boundingBox(); ext = ext.buffered(max(ext.width(), ext.height()) * 0.2 + 250)
+    uid = f["unit_id"]
+    if ONLY and int(uid) not in ONLY:
+        continue
+    ext = f.geometry().boundingBox(); ext = ext.buffered(max(ext.width(), ext.height()) * 0.2 + 250)
     cur.setSubsetString(f"unit_id = {uid}")
     if have_cable:
         chosen = summary.get(int(uid), {}).get("chosen_landings", "").split()
         sel = " AND landing_id IN (" + ",".join(chosen) + ")" if chosen else ""
         corr.setSubsetString(f"feasible = 1 AND unit_id = {uid}{sel}"); landings.setSubsetString(f"unit_id = {uid}{sel if chosen else ' AND corridors_ok > 0'}")
-    lay, m = make_layout(f"Unit {uid}", f, ext)
-    # keep a readable round scale
-    sc = m.scale(); sc = min(s for s in (2400, 3000, 3600, 4800, 6000, 7200, 9600, 12000, 15000, 20000) if s >= sc) if sc <= 20000 else sc
-    m.setScale(sc); m.setExtent(m.extent()); export(lay, f"Unit_{uid}"); pages.append(os.path.join(OUT, f"Unit_{uid}.pdf"))
+    SHEET[0] += 1
+    sc = max(ext.width() / (300 / 304.8), ext.height() / (226 / 304.8))   # scale that fits the extent in the 300 x 226 mm map (extent in US ft)
+    sc = min(s for s in (2400, 3000, 3600, 4800, 6000, 7200, 9600, 12000, 15000, 20000) if s >= sc) if sc <= 20000 else sc   # readable round scale
+    lay, m = make_layout(f"Unit {uid}", f, ext, scale=sc)
+    export(lay, f"Unit_{uid}"); pages.append(os.path.join(OUT, f"Unit_{uid}.pdf"))
 # merge
 try:
+    if ONLY:
+        raise RuntimeError("subset run, no merge")
     from pypdf import PdfWriter
     w = PdfWriter()
     for p in [os.path.join(OUT, "Overview.pdf")] + pages:

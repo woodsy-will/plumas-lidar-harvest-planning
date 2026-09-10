@@ -91,13 +91,29 @@ minimum, follow the *Best Practice Guidelines for Cable Logging* (New Zealand FI
 deflection the loaded skyline tension is about 60 % higher than at 10 %, and below that payloads fall off
 quickly.
 
-## Map conventions
+## Map conventions and symbology
 
-The unit sheets and overview follow the layout of a Forest Service sale area map: cutting units filled by
-yarding method, the sale or treatment block boundary, streamcourse protection areas, existing transportation
-with road numbers, contour lines with labeled index contours, PLSS sections with township and range in the
-title block, a unit table, north arrow and bar scale on an 11x17 sheet. Contract clause references
-(B1.1, C6.42 and the like) are omitted because there is no contract.
+The unit sheets and overview follow the layout of a Forest Service sale area map: cutting units, the sale or
+treatment block boundary, streamcourse protection areas, existing transportation with road numbers, contour
+lines with labeled index contours, PLSS sections with township and range in the title block, a unit table,
+north arrow, bar scale and scale statement on an 11x17 sheet. Contract clause references (B1.1, C6.42 and the
+like) are omitted because there is no contract.
+
+The symbology was reworked against published guidance and a current Forest Service example, and the choices
+are these:
+
+| Element | Choice | Basis |
+|---|---|---|
+| Visual hierarchy | The units are the figure: cased outlines colored by method with bold labels; everything else recedes. Overview uses pale method fills with a dashed dark outline, the cutting-unit convention. | Willamette NF LFC SBA sale area map (2025): units as the only filled features, heavy dashed sale boundary, grey base; Esri design principles on figure-ground and contrast |
+| Sale boundary | Heavy black long dash | Same sale area map; a line pattern reads under any color vision |
+| Relief base | Multidirectional hillshade multiplied into pale class tints once in `02c_relief_tint.py`; shadows held to 62 % luminosity, tints desaturated | Patterson (shadedrelief.com): shadows no darker than 70 %, muted colors so relief does not muddy the map; Esri: base at 30 to 50 % strength; empirical overlay study (opacity 20 to 70 % acceptable, outlines extend the range) |
+| Why one composed raster | Blending translucent fills in the layout produced third colors (blue over yellow read as green) and would have forced the PDF export to raster | Jenny and Kelso 2007 on redundant variables and confusable blends; measured in this project |
+| Method colors | Okabe-Ito vermillion (tractor), blue (cable), green (hand thinning); pale versions for fills, dark for lines | Okabe and Ito palette; Jenny and Kelso 2007 (dark green, brown, orange and red collapse for red-green impaired readers, so method is also carried by the label) |
+| Hydrography | USGS blue; perennial solid, intermittent dash-dot, ephemeral dotted; riparian conservation areas as a pale wash; equipment exclusion zones as a fine hatch inside units | USGS topographic map symbol standard; class carried by line pattern, not hue |
+| Contours | USGS brown, 40 ft with 200 ft index, held to low opacity | USGS standard (brown, index heavier); hierarchy |
+| Roads | System roads as a cased dark line with the road number; local roads thin grey dash | USGS road classes; sale area map road numbers |
+| Corridors and landings | Thin neutral black corridors, yellow triangle landings with black edge | Avoids a second blue family next to hydrography |
+| Marginalia | Scale statement, contour interval, north reference, sheet number and date beside the bar scale | Standard map elements; sale area map title block |
 
 ## Canopy height model and pits
 

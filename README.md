@@ -91,7 +91,9 @@ sale-level QA table opens the merged review PDF; four units come up short of the
 
 Map layout after Forest Service sale area maps: units filled by yarding method, treatment block boundary,
 streamcourse protection, roads with numbers, 40 ft contours with 200 ft index, PLSS with township and
-range, unit table, 11x17, as vector print PDF (300 dpi rasters) and as GeoPDF for Avenza. Okabe-Ito color-blind-safe palette
+range, unit table, 11x17, as vector print PDF (300 dpi rasters) and as GeoPDF for Avenza. Symbology
+reworked against a current Forest Service sale area map, Patterson's relief-shading guidance, Jenny and Kelso's
+color-vision recommendations and USGS topographic conventions (table in `docs/methods.md`). Okabe-Ito color-blind-safe palette
 throughout. GeoPackage deliverable with layer descriptions and FGDC / ISO 19115 summary metadata
 (`docs/data_dictionary.md`). Output checked against print, web, WCAG contrast and color-vision standards
 by measurement (table in `docs/methods.md`). Cable screen definitions and the downhill-yarding rule from the Forest Service
@@ -123,6 +125,7 @@ kept in git. JPEG previews of everything are in `output/previews`.
 | `01_get_data.py` | public vectors to `data/raw`; `ept_fetch.py` pulls the LiDAR nodes |
 | `02_build_terrain.py` | DTM, DSM, CHM, slope, planning slope, aspect, hillshade, cover, dominant height, yarding class |
 | `02b_quicklooks.py` | color quicklooks of the products |
+| `02c_relief_tint.py` | pre-composed relief tint (hillshade x pale yarding-class tints) for the unit sheets |
 | `03_delineate_units.py` | demonstration units, riparian and exclusion buffers, clipped streams |
 | `04_cable_analysis.py` | landings, corridors, per-unit skyline feasibility |
 | `04b_cable_figures.py` | profile sheets, route tables, corridor maps, all sale-level figures, EYD and AYD, from the saved corridors |
