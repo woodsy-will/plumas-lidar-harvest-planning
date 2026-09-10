@@ -101,6 +101,11 @@ the ASPRS 2 m vegetation boundary. Details and citations in `docs/methods.md`.
 
 ## Outputs
 
+Large deliverables (the merged map series, the GeoPDFs, the individual print sheets, the 300 dpi cable
+figures and the packaged rasters) are attached to the
+[v1.0 release](https://github.com/woodsy-will/plumas-lidar-harvest-planning/releases/tag/v1.0) rather than
+kept in git. JPEG previews of everything are in `output/previews`.
+
 | Folder | Contents |
 |---|---|
 | `output/maps` | per-sheet print PDF (vector text, 300 dpi) and 150 dpi PNG; `geopdf/` field copies for Avenza; `Unit_Map_Series.pdf` merged (release asset, not in git) |
