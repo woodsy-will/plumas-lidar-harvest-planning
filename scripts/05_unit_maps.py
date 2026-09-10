@@ -5,8 +5,9 @@ conservation areas, streams by class, NFS roads, selected landings and feasible 
 sections, a unit panel (terrain, stand and yarding attributes), legend, scale bar, locator inset and a
 sources / disclaimer block. Plus an overview sheet of the whole block with a unit table.
 
-Outputs output/maps/Unit_<id>.pdf|.png, output/maps/Overview.pdf|.png, output/maps/Unit_Map_Series.pdf
-Run: python-qgis-ltr.bat scripts\05_unit_maps.py
+Outputs output/maps/Unit_<id>.pdf and Overview.pdf (print PDF: vector text, rasters at 300 dpi), output/maps/geopdf/
+        copies at 200 dpi for Avenza, .png at 150 dpi, and the merged output/maps/Unit_Map_Series.pdf
+Run: python-qgis-ltr.bat scripts/05_unit_maps.py
 """
 import csv
 import os
@@ -15,13 +16,11 @@ import sys
 from qgis.core import (QgsCoordinateTransform, QgsMapLayerLegendUtils, QgsLegendStyle, QgsApplication, QgsCoordinateReferenceSystem, QgsFillSymbol, QgsLayoutExporter, QgsLayoutItemLabel,
                        QgsLayoutItemLegend, QgsLayoutItemMap, QgsLayoutItemPicture, QgsLayoutItemScaleBar, QgsLayoutPoint,
                        QgsLayoutSize, QgsLineSymbol, QgsMarkerSymbol, QgsPalLayerSettings, QgsPrintLayout, QgsProject,
-                       QgsRasterLayer, QgsRasterShader, QgsColorRampShader, QgsSingleBandPseudoColorRenderer,
-                       QgsSingleBandGrayRenderer, QgsContrastEnhancement, QgsRuleBasedRenderer, QgsSymbol, QgsTextFormat,
-                       QgsUnitTypes, QgsVectorLayer, QgsVectorLayerSimpleLabeling, QgsRectangle, QgsLayoutItemMapOverview,
-                       QgsLayoutItemShape, QgsLayoutItemPage, QgsLayerTreeLayer, QgsCategorizedSymbolRenderer, QgsRendererCategory,
-                       QgsSimpleFillSymbolLayer, QgsLinePatternFillSymbolLayer, QgsFeatureRequest)
+                       QgsRasterLayer, QgsTextFormat, QgsUnitTypes, QgsVectorLayer, QgsVectorLayerSimpleLabeling, QgsLayoutItemMapOverview,
+                       QgsLayoutItemPage, QgsCategorizedSymbolRenderer, QgsRendererCategory,
+                       QgsSimpleFillSymbolLayer, QgsLinePatternFillSymbolLayer)
 from qgis.core import QgsRenderContext, QgsGeometry, QgsSimpleLineSymbolLayer
-from qgis.PyQt.QtCore import QSizeF, Qt
+from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtGui import QColor, QFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -30,7 +29,7 @@ os.makedirs(OUT, exist_ok=True)
 CRS = QgsCoordinateReferenceSystem("EPSG:2226")
 import datetime
 TITLE = "Mohawk Valley West Slope - Harvest Unit Planning"
-DATE = datetime.date.today().strftime("%B %d, %Y"); SHEET = [1, 25]
+DATE = datetime.date.today().strftime("%B %d, %Y"); SHEET = [1, 1]
 SUBTITLE = "Demonstration from public data (USGS 3DEP LiDAR 2018, USFS EDW, NHD, BLM). Not a Forest Service proposal."
 
 QgsApplication.setPrefixPath(r"C:\Program Files\QGIS 3.44.12\apps\qgis-ltr", True)
@@ -46,6 +45,13 @@ def vl(path, layer, name, crs=None):
         raise RuntimeError("bad layer " + name)
     if crs:
         lyr.setCrs(crs)
+    return lyr
+
+
+def rl(path, name):
+    lyr = QgsRasterLayer(path, name)
+    if not lyr.isValid():
+        raise RuntimeError(f"bad raster {os.path.basename(path)}" + (" - run 02c_relief_tint.py first" if path.endswith("relief_tint.tif") else ""))
     return lyr
 
 
@@ -83,9 +89,9 @@ def label(layer, expr, size=9, color="0,0,0", bold=True, buffer=True):
 
 # ---- layers ----
 gpkg = os.path.join(WORK, "planning.gpkg"); cable = os.path.join(WORK, "cable.gpkg")
-hill = QgsRasterLayer(os.path.join(WORK, "hillshade.tif"), "Hillshade (LiDAR DTM)"); hill.renderer().setOpacity(0.35)   # overview and inset: subdued grey base
-relief = QgsRasterLayer(os.path.join(WORK, "relief_tint.tif"), "Relief tint: yarding class from planning slope over the LiDAR hillshade")   # unit sheets: composed once in 02c
-ycls = QgsRasterLayer(os.path.join(WORK, "yarding_class.tif"), "Yarding class from planning slope (shaded by the LiDAR hillshade)")   # legend swatches only
+hill = rl(os.path.join(WORK, "hillshade.tif"), "Hillshade (LiDAR DTM)"); hill.renderer().setOpacity(0.35)   # overview and inset: subdued grey base
+relief = rl(os.path.join(WORK, "relief_tint.tif"), "Relief tint: yarding class from planning slope over the LiDAR hillshade")   # unit sheets: composed once in 02c
+ycls = rl(os.path.join(WORK, "yarding_class.tif"), "Yarding class from planning slope (shaded by the LiDAR hillshade)")   # legend swatches only
 from qgis.core import QgsPalettedRasterRenderer
 classes = [QgsPalettedRasterRenderer.Class(1, QColor(206, 232, 222), "Ground-based, slope 35 % and under"),
            QgsPalettedRasterRenderer.Class(2, QColor(248, 241, 190), "Marginal, 35 to 50 %"),
@@ -116,7 +122,7 @@ cl_f = QgsTextFormat(); cl_f.setFont(QFont("Arial", 6)); cl_f.setSize(6); cl_f.s
 from qgis.core import QgsRuleBasedLabeling
 cl_root = QgsRuleBasedLabeling.Rule(None); cl_rule = QgsRuleBasedLabeling.Rule(cl_s); cl_rule.setFilterExpression("\"index\" = 1"); cl_root.appendChild(cl_rule)
 contours.setLabelsEnabled(True); contours.setLabeling(QgsRuleBasedLabeling(cl_root))
-units = vl(gpkg, "units", "Harvest units (demonstration)")
+units = vl(gpkg, "units", "Harvest units (demonstration)"); SHEET[1] = sum(1 for _ in units.getFeatures()) + 1   # overview plus one sheet per unit (featureCount() can be -1 before the provider has counted)
 # method colors: Okabe-Ito vermillion for tractor, blue for cable, green for hand thinning (dark for lines, pale for fills)
 METHOD_COLORS = {"Tractor": ((213, 94, 0), (247, 205, 178)), "Cable": ((0, 90, 170), (176, 208, 234)), "Hand Thinning": ((0, 120, 90), (190, 228, 214))}
 present = {f["method"] for f in units.getFeatures()}
@@ -212,7 +218,7 @@ def make_layout(name, feat=None, extent=None, scale=None):
         y = 34
         add_label(layout, "Unit  Method        Gross  Net ac  Slope  Canopy  Skyline screen", px, y, pw, 6, 8, True); y += 5
         tg = tn = 0.0
-        for f in units.getFeatures():
+        for f in sorted(units.getFeatures(), key=lambda x: int(x["unit_id"])):
             dd = dict(zip([x.name() for x in units.fields()], f.attributes())); s = summary.get(int(dd["unit_id"]), {}); tg += dd["acres"]; tn += dd["net_acres"]
             short = {"Small yarder": "small yarder", "Medium yarder": "medium yarder", "Long-span yarder": "long-span", "Intermediate support needed": "interm. support", "No feasible corridor": "no corridor"}
             scr = (f"{float(s.get('coverage_pct', 0)):.0f} % corridor coverage, {short.get(s.get('equipment', ''), s.get('equipment', ''))}" if dd["method"] == "Cable" else "ground-based") if s else ""
@@ -271,7 +277,7 @@ lay, m = make_layout("Overview", None, block_ext.buffered(600), scale=24000); ex
 # per unit
 pages = []
 ONLY = {int(u) for u in os.environ.get("ONLY_UNITS", "").split()} if os.environ.get("ONLY_UNITS") else None   # ONLY_UNITS="404 101" renders a subset for design checks
-for f in units.getFeatures():
+for f in sorted(units.getFeatures(), key=lambda x: int(x["unit_id"])):
     uid = f["unit_id"]
     if ONLY and int(uid) not in ONLY:
         continue

@@ -16,8 +16,8 @@ Rules (repeated in docs/methods.md):
   method    = Hand Thinning where dominant height < 55 ft and cover >= 50 % (small-diameter fuels stand),
               otherwise Tractor where mean slope <= 35 %, Cable above that
   numbering = 100-series Tractor, 400-series Cable, 700-series Hand Thinning, numbered west to east
-Writes data/work/planning.gpkg with layers units, rca_buffers, eez_buffers and operable_mask.
-Run: python-qgis-ltr.bat scripts\03_delineate_units.py
+Writes data/work/planning.gpkg with layers units, rca_buffers, eez_buffers, streams_aoi, contours and operable_mask.
+Run: python-qgis-ltr.bat scripts/03_delineate_units.py
 """
 import json
 import os
@@ -48,7 +48,6 @@ def ras(name):
 slope, ref = ras("slope_plan_pct.tif")      # planning slope (smoothed DTM, 99 ft average); slope_pct.tif keeps the 3 ft detail
 cover, _ = ras("canopy_cover_66ft.tif")
 dom, _ = ras("dom_height_66ft.tif")
-ycls, _ = ras("yarding_class.tif")
 dtm, _ = ras("dtm_3ft.tif")
 aspect, _ = ras("aspect_deg.tif")
 gt = ref.GetGeoTransform(); ny, nx = slope.shape; srs_wkt = ref.GetProjection()
@@ -200,7 +199,6 @@ for f in tmp:
 road_dist = distance_transform_edt(~rasterize(roads, CELL)) * CELL
 DIRS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
 rows = []
-eez_ras = eez
 for u, g in polys.items():
     g = g.Buffer(30).Buffer(-30).SimplifyPreserveTopology(20)        # round the raster stair-steps, then generalise to 20 ft
     if g.IsEmpty() or g.GetArea() / 43560 < MIN_AC * 0.8:
@@ -211,7 +209,7 @@ for u, g in polys.items():
     mean_asp = (np.degrees(np.arctan2(np.sin(ang).mean(), np.cos(ang).mean())) + 360) % 360
     smean = float(np.nanmean(sl)); dh = float(np.nanmean(dom[m])); cv = float(np.nanmean(cover[m])) * 100
     method = "Hand Thinning" if (dh < 55 and cv >= 50) else ("Tractor" if smean <= 35 else "Cable")
-    rows.append(dict(geom=g, x=g.Centroid().GetX(), method=method, acres=g.GetArea() / 43560, net_acres=g.GetArea() / 43560 * (1 - float(eez_ras[m].mean())),
+    rows.append(dict(geom=g, x=g.Centroid().GetX(), method=method, acres=g.GetArea() / 43560, net_acres=g.GetArea() / 43560 * (1 - float(eez[m].mean())),
                      slope_mean=smean, slope_max=float(np.nanpercentile(sl, 98)),
                      aspect=DIRS[int(((mean_asp + 22.5) % 360) // 45)],
                      elev_min=float(np.nanmin(dtm[m])), elev_max=float(np.nanmax(dtm[m])),

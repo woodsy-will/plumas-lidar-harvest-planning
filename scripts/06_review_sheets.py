@@ -6,8 +6,9 @@ data/work/qc_planted.json. The QA pass flags plots that fail checks; the review 
 stand metrics, the flagged plots and a plot map, in the form a crew lead hands back to the field.
 
 Outputs data/work/cruise_plots.gpkg, output/review/Unit_<id>_Review.pdf, output/review/Unit_Reviews.pdf,
-        output/review/cruise_data.xlsx
-Run: python-qgis-ltr.bat scripts\06_review_sheets.py
+        output/review/qa_summary.csv and output/review/cruise_data.xlsx (sheets Plots, Trees, Unit summary,
+        Stand tables, Stock tables, Standards and assumptions)
+Run: python-qgis-ltr.bat scripts/06_review_sheets.py
 """
 import json
 import math
@@ -43,7 +44,7 @@ def raster(name):
     return np.where(a == nd, np.nan, a), d.GetGeoTransform()
 
 
-dom, gt = raster("dom_height_66ft.tif"); cover, _ = raster("canopy_cover_66ft.tif"); slope, _ = raster("slope_pct.tif")
+dom, gt = raster("dom_height_66ft.tif"); cover, _ = raster("canopy_cover_66ft.tif"); slope, _ = raster("slope_plan_pct.tif")
 
 
 def sample(arr, x, y):
@@ -80,7 +81,7 @@ def plant(kind, **kw):
 cand = [p for p in plots if p["n_trees"] >= 3]
 p1 = cand[3]; t1 = next(t for t in trees if t["plot"] == p1["plot"]); t1["species"] = "PPP"; plant("species_code", plot=p1["plot"], tree=t1["tree"])
 p2 = cand[11]; t2 = next(t for t in trees if t["plot"] == p2["plot"]); t2["dbh"] = 999.0; plant("dbh_out_of_range", plot=p2["plot"], tree=t2["tree"])
-p3 = cand[19]; g3 = next(g for u, g in units if u["unit_id"] == p3["unit_id"]); p3["x"] += 900; plant("plot_outside_unit", plot=p3["plot"])
+p3 = cand[19]; p3["x"] += 900; plant("plot_outside_unit", plot=p3["plot"])
 p4 = cand[27]; p4["plot"] = cand[26]["plot"]; plant("duplicate_plot_id", plot=p4["plot"])
 p5 = cand[35]; t5 = [t for t in trees if t["plot"] == p5["plot"]][1]; t5["height"] = None; plant("missing_height", plot=p5["plot"], tree=t5["tree"])
 p6 = cand[43]; t6 = [t for t in trees if t["plot"] == p6["plot"]][0]; t6["height"] = 15; t6["dbh"] = 34.0; plant("height_dbh_mismatch", plot=p6["plot"], tree=t6["tree"])
@@ -211,11 +212,15 @@ for u, g in units:
 ws4 = wb.create_sheet("Stand tables"); ws4.append(["unit_id", "DBH class (in)", "trees tallied", "TPA", "BA sq ft/ac", "cu ft/ac", "MBF/ac"])
 for u, g in units:
     m = M[u["unit_id"]]
+    if not m:
+        continue
     for k in sorted(m["cls_stat"]):
         c = m["cls_stat"][k]; ws4.append([u["unit_id"], f"{k}-{k + DBH_CLASS - 0.1:.1f}", c["n"], round(c["tpa"], 1), round(c["ba"], 1), round(c["vol"]), round(c["vol"] / 1000 * BF_PER_CF, 2)])
 ws5 = wb.create_sheet("Stock tables"); ws5.append(["unit_id", "species", "trees tallied", "TPA", "BA sq ft/ac", "QMD in", "cu ft/ac", "MBF/ac"])
 for u, g in units:
     m = M[u["unit_id"]]
+    if not m:
+        continue
     for k, s in sorted(m["sp_stat"].items(), key=lambda x: -x[1]["ba"]):
         ws5.append([u["unit_id"], k, s["n"], round(s["tpa"], 1), round(s["ba"], 1), round(s["qmd"], 1), round(s["vol"]), round(s["vol"] / 1000 * BF_PER_CF, 2)])
 ws6 = wb.create_sheet("Standards and assumptions")
@@ -223,7 +228,7 @@ for row in (["item", "value", "source"],
             ["Basal area factor", BAF, "variable-radius (prism) cruise; BA/ac = trees in x BAF"],
             ["Tree basal area", "0.005454 x DBH^2 sq ft", "standard mensuration"],
             ["Expansion factor", "BAF / tree BA, divided by plots", "per-tree trees per acre"],
-            ["Sampling error", "t(0.975, n-1) x SE / mean, percent", "FSH 2409.12 ch. 40, 41.1: 95 % confidence (t = 2 for large n)"],
+            ["Sampling error", "t(0.975, n-1) x SE / mean, percent (sale as a whole uses t = 2, the handbook's large-sample value)", "FSH 2409.12 ch. 40, 41.1: 95 % confidence (t = 2 for large n)"],
             ["Stratum standard", f"{STRATUM_STD:.0f} %", "FSH 2409.12 ch. 40, 41.1(5)(b): tree-measurement sales"],
             ["Sale-as-a-whole standard", f"{sale_std} % at an assumed value of ${sale_value:,.0f}", "FSH 2409.12 ch. 40, 41.1 exhibit 01 (tree measurement column)"],
             ["Sale-as-a-whole estimate", "stratified by unit, area weights; var = sum(W^2 s^2 / n)", "Cochran; FSH 2409.12 ch. 30"],
@@ -265,10 +270,10 @@ B.fontName = FONT; H.fontName = FONT_B
 from reportlab.lib.styles import ParagraphStyle
 TT = ParagraphStyle("tt", parent=B, fontName=FONT_B, fontSize=8.5, leading=10, spaceBefore=6, spaceAfter=2)      # table title, above the table
 FN = ParagraphStyle("fn", parent=B, fontName=FONT, fontSize=7, leading=8.5, textColor=colors.HexColor("#444444"), spaceBefore=2)   # footnote, below
-GREEN, PALE, GRIDC = colors.HexColor("#dde8d0"), colors.HexColor("#f3f6ee"), colors.HexColor("#999999")
+GREEN, PALE = colors.HexColor("#dde8d0"), colors.HexColor("#f3f6ee")
 
 
-def tstyle(head_rows=(0,), first_col=True, size=8, extra=()):
+def tstyle(head_rows=(0,), size=8, extra=()):
     st = [("FONTNAME", (0, 0), (-1, -1), FONT), ("FONTSIZE", (0, 0), (-1, -1), size), ("LEADING", (0, 0), (-1, -1), size + 2),
           ("LINEBELOW", (0, 0), (-1, 0), 0.6, colors.black), ("LINEABOVE", (0, 0), (-1, 0), 0.6, colors.black), ("LINEBELOW", (0, -1), (-1, -1), 0.6, colors.black),
           ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 1.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 1.5)]

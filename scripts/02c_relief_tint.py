@@ -1,10 +1,10 @@
 """02c_relief_tint.py - one pre-composed relief-tint raster for the unit sheets.
 
 Cartographic rule (Patterson, shadedrelief.com; Esri design principles): the base must recede so the units read as
-the figure. Shadow values are held to 70 % or lighter, the class tints are pale and desaturated, and the hillshade is
+the figure. Shadow values are held to 62 % luminosity, inside Patterson's 70 % floor, the class tints are pale and desaturated, and the hillshade is
 multiplied into the tint once here rather than blended in the layout, so the map export stays vector and no
 translucent fill can blend into a third color. Output data/work/relief_tint.tif, RGBA, 3 ft cells.
-Run: python-qgis-ltr.bat scripts\02c_relief_tint.py
+Run: python-qgis-ltr.bat scripts/02c_relief_tint.py
 """
 import os
 
@@ -16,7 +16,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WORK = os.path.join(ROOT, "data", "work")
 # pale tints of the Okabe-Ito hues used everywhere else (ground-based green, marginal yellow, cable vermillion)
 TINT = {1: (206, 232, 222), 2: (248, 241, 190), 3: (243, 205, 178)}
-SHADOW_MAX = 0.62     # darkest a shadow may go (1 = no darkening); Patterson recommends shadows no darker than 70 %
+SHADOW_MAX = 0.62     # darkest a shadow may go (1 = no darkening); shadow values are held to 62 % luminosity, inside Patterson's 70 % floor
 
 hs_ds = gdal.Open(os.path.join(WORK, "hillshade.tif")); hs = hs_ds.GetRasterBand(1).ReadAsArray().astype("float32")
 yc_ds = gdal.Open(os.path.join(WORK, "yarding_class.tif")); yc = yc_ds.GetRasterBand(1).ReadAsArray()

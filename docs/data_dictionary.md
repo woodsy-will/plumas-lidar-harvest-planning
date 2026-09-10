@@ -30,7 +30,7 @@ written by `scripts/08_package_gis.py`. The same layers exist in the working fil
 | method | text | Tractor, Cable or Hand Thinning (rules in methods.md) |
 | acres | real | gross acres inside the boundary |
 | net_acres | real | acres after the equipment exclusion zones inside the unit are removed |
-| slope_mean, slope_max | real | planning slope, percent, mean and maximum over the unit |
+| slope_mean, slope_max | real | planning slope, percent, mean and 98th percentile over the unit |
 | aspect | text | dominant aspect octant (N, NE, ...) |
 | elev_min, elev_max | real | DTM range, ft |
 | cover_pct | real | mean canopy cover, percent, 66 ft window |
@@ -73,13 +73,13 @@ Operable ground before splitting; `v` = 1. Kept so a reviewer can see what the u
 | corridors_ok | int | number of feasible corridors from this landing |
 | coverage_pct | real | share of the unit within 150 ft of a feasible corridor from this landing |
 
-### corridors (LineString Z, 8,540 features)
+### corridors (LineString, 8,540 features)
 
 | Field | Type | Meaning |
 |---|---|---|
 | unit_id, landing_id | int | landing the corridor was cast from |
 | bearing | int | azimuth from the landing, degrees |
-| span_ft | real | slope distance landing to tailhold |
+| span_ft | real | horizontal distance landing to tailhold |
 | deflection_pct | real | mid-span chord height above ground divided by span, percent |
 | min_clear_ft | real | minimum chord clearance above ground along the profile, ft |
 | feasible | int | 1 when min clearance >= 10 ft and deflection >= 6 % with a 50 ft tower |
@@ -110,10 +110,11 @@ Simulated cruise plots; the tree records are in `output/review/cruise_data.xlsx`
 | slope_pct | raw slope of the 3 ft DTM; noisy under canopy, kept for reference only |
 | slope_plan_pct | planning slope: gradient of the 15 ft smoothed DTM averaged over 99 ft |
 | aspect_deg | aspect, degrees from north |
-| hillshade | Byte, azimuth 315, altitude 45 |
+| hillshade | Byte, GDAL multidirectional hillshade, z-factor 1 |
 | canopy_cover_66ft | share of CHM cells above 6.5 ft in a 66 ft window, 0 to 1 |
 | dom_height_66ft | 95th percentile CHM height in a 66 ft window, ft |
 | yarding_class | 1 ground-based (<= 35 %), 2 marginal (35 to 50 %), 3 cable (> 50 %) |
+| relief_tint | Byte RGBA, hillshade multiplied into pale yarding-class tints, the base for the unit sheets |
 
 `output/gis` carries yarding_class, slope_plan_pct, canopy_cover_66ft and dom_height_66ft as tiled,
 deflate-compressed GeoTIFFs with overviews. The full set stays in `data/work` (not in git; rebuild with
@@ -129,6 +130,6 @@ dominant height, each with title, legend or color ramp, one-mile scale bar, nort
 
 - `output/cable/unit_summary.csv`: one row per unit from the cable screen: corridors cast and feasible,
   coverage, mean deflection, equipment class, difficulty, chosen landings, downhill share, EYD, AYD.
-- `output/review/cruise_data.xlsx`: Plots, Trees and Unit summary sheets; the unit summary carries BA with
+- `output/review/cruise_data.xlsx`: Plots, Trees, Unit summary, Stand tables, Stock tables and Standards and assumptions sheets; the unit summary carries BA with
   sampling error, TPA, QMD, SDI, CWHR, sawtimber and biomass BA, CV, plots needed and the standard check.
 - `output/review/qa_summary.csv`: the sale-level QA table printed on the first page of `Unit_Reviews.pdf`.

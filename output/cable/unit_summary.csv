@@ -2,7 +2,7 @@ unit_id,method,acres,slope_mean,landings,landings_used,corridors,corridors_feasi
 101,Tractor,97.4,9.6,10,4,148,18,31,51.4,7.1,66.7,2368,Long-span yarder,High,4 5 3 6,2368,1579,33.3
 102,Tractor,36.3,12.3,9,3,131,16,40,23.7,9.7,25.0,773,Small yarder,Moderate,7 8 3,773,516,75.0
 103,Tractor,53.4,23.4,11,4,270,59,76,72.8,9.7,61.0,1835,Long-span yarder,Moderate,10 7 3 6,1835,1224,39.0
-401,Cable,29.5,42.2,3,0,68,0,0,0.0,0.0,0.0,0,No feasible corridor,High,,0,0,100.0
+401,Cable,29.5,42.2,3,0,68,0,0,0.0,0.0,0.0,0,No feasible corridor,High,,0,0,0.0
 104,Tractor,111.5,13.5,8,1,236,17,25,4.0,9.3,29.4,635,Small yarder,Moderate,7,635,424,70.6
 402,Cable,38.9,53.9,14,3,374,182,188,69.7,14.9,69.2,1931,Long-span yarder,Moderate,14 7 3,1931,1288,30.8
 105,Tractor,57.4,20.7,9,4,211,62,76,69.1,9.9,38.7,1163,Medium yarder,Standard,9 3 2 4,1163,776,61.3

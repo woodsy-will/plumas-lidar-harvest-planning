@@ -68,7 +68,7 @@ existing skid trails, and anything else that only a field visit and the project 
 
 For each Cable unit, and for Tractor units as a check:
 
-1. Candidate landings are road points within 500 ft of the unit, sampled every 200 ft along NFS and TIGER roads; a unit with no road that close is served from its nearest road points up to 2,000 ft away.
+1. Candidate landings are road points within 500 ft of the unit, sampled every 200 ft along NFS and TIGER roads; a unit with no road that close is served from its nearest road points up to 2,000 ft away; on tractor units the candidate list is thinned to at most 12 landings and corridors are cast every 10 degrees rather than 5.
 2. From each landing, corridors are cast every 5 degrees (10 for tractor units) across the unit to a tailhold 100 ft beyond the
    far boundary, and profiles sampled from the DTM every 10 ft.
 3. Skyline geometry: tower height 50 ft (medium yarder) with a 70 ft alternative, tailhold anchor 10 ft.
@@ -77,14 +77,17 @@ For each Cable unit, and for Tractor units as a check:
    length, is at least 6 %, the usual planning minimum for partial-suspension payloads.
 4. Span classes for equipment: up to 1,000 ft small yarder, up to 1,800 ft medium, up to 3,000 ft
    long-span; longer spans are flagged as needing intermediate supports.
-5. Unit coverage is the share of the unit within 150 ft of a feasible corridor (lateral yarding reach).
+5. Unit coverage is the share of the unit within 150 ft (lateral yarding reach) of a feasible corridor from the
+   landings actually selected: up to four, chosen greedily for total coverage and stopped when the next landing
+   adds less than 3 % of the unit.
    Difficulty combines coverage, mean available deflection, ground slope and the downhill-yarding share.
 
 These are planning-level screens of the kind used to sort units by logging system before a field review,
 not an engineered skyline design. Two definitions follow the Forest Service *Cable Logging Systems* guide
-(Pacific Northwest Region, FS technology and development): external yarding distance is the slope distance
-from the landing to the far unit boundary, and average yarding distance is 0.667 of that for a fan-shaped
-setting. The same guide is the source for the direction rule reported on the sheets: downhill yarding
+(Pacific Northwest Region, FS technology and development): external yarding distance is taken here as the
+longest horizontal span among a unit's feasible corridors (landing to tailhold, 100 ft past the boundary),
+and average yarding distance is 0.667 of it for a fan-shaped setting.
+The same guide is the source for the direction rule reported on the sheets: downhill yarding
 capability is usually a third to a half of uphill capability, and landings should be placed to avoid blind
 leads and sidehill yarding. The deflection, clearance and tension relationship, and the 6 % planning
 minimum, follow the *Best Practice Guidelines for Cable Logging* (New Zealand FITEC, 2000): at 6 %
@@ -117,7 +120,7 @@ are these:
 
 ## Canopy height model and pits
 
-The CHM is the maximum first-return height in each 3 ft cell. Pit-free CHM algorithms (Khosravipour et al.
+The CHM is the maximum height above ground of any non-noise return in each 3 ft cell. Pit-free CHM algorithms (Khosravipour et al.
 2014) remove the below-canopy returns that leave single dark cells inside crowns; they are not applied here
 because every downstream use of the CHM is a 66 ft window statistic (cover, 95th percentile height) or a
 unit mean, which pits do not move. The 6.5 ft (2 m) cover threshold is the ASPRS boundary between low and
@@ -160,16 +163,16 @@ The deliverables were checked against current practice for map and figure output
 
 | Item | Standard | This project |
 |---|---|---|
-| Print PDF | text and linework vector, rasters at 300 dpi, fonts embedded | unit sheets and overview: vector text (Arial embedded), 9 raster images at 300 dpi, 3 to 5 MB per sheet |
+| Print PDF | text and linework vector, rasters at 300 dpi, fonts embedded | unit sheets and overview: vector text (Arial embedded), 9 raster images at 300 dpi, 2.3 to 3.7 MB per unit sheet, 5.4 MB for the overview |
 | Field PDF | georeferenced; Avenza reduces maps over 4 Mpx to 150 dpi and over 12 Mpx to 72 dpi on import | `output/maps/geopdf`: QGIS GeoPDF at 200 dpi (7.5 Mpx, under the 12 Mpx step); the print PDFs also carry ISO 32000 georeferencing |
 | Figures | 300 dpi for publication | all cable figures, route tables and profiles at 300 dpi; corridor maps and quicklooks at 200 dpi |
 | Web previews | sRGB, about 2,000 to 2,500 px long edge, JPEG quality 85 to 90 | 1,870 px map previews, 2,400 px figure previews, quality 88, 4:4:4 chroma so thin colored lines stay crisp |
 | Text contrast | WCAG 2.2 AA: 4.5:1 for text, 3:1 for graphics | every text and background pair measured is 5.4:1 or better; map text on the hillshade tints 8.8:1 |
-| Color vision | categories distinguishable under protan, deutan and tritan simulation | Okabe-Ito palette throughout; unit fills are hatched rather than translucent because a blue fill over the yellow marginal tint blended to a green only 9 CIE76 units from the ground-based tint; the current-unit outline is black with a white casing because red on orange collapsed to 1.7 units under protan simulation |
-| Type size | 6 pt minimum, 8 pt preferred on printed maps | smallest map text 7 pt (footer), tables 8 pt, legend 7.5 pt |
+| Color vision | categories distinguishable under protan, deutan and tritan simulation | Okabe-Ito palette throughout; unit interiors are left open under a cased outline rather than filled with a translucent color, because a blue fill over the yellow marginal tint blended to a green only 9 CIE76 units from the ground-based tint; the overview, which carries no relief tint, uses opaque pale method fills; the current-unit outline is black with a white casing because red on orange collapsed to 1.7 units under protan simulation |
+| Type size | 6 pt minimum, 8 pt preferred on printed maps | smallest map text 6 pt (contour elevation labels), footer and overview unit table 7 pt, legend 7.5 pt, unit panel 9 pt |
 | Metadata | title and author in the document, ISO / FGDC summary for GIS data | PDF document title and author set; GeoPackage carries layer descriptions and a project metadata table |
 
-The merged map series (about 110 MB at 300 dpi) and the GeoPDF folder are kept out of git and attached to the
+The merged map series (about 78 MB at 300 dpi) and the GeoPDF folder are kept out of git and attached to the
 release instead.
 
 ## Colors, metadata and deliverables

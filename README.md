@@ -58,11 +58,11 @@ the boundary as an internal restriction and netted out of treatable acres.
 
 ### Cable-yarding screen
 
-8,540 corridors were cast from 940 candidate road landings. For the six cable units:
+8,540 corridors were cast from 314 candidate landings on the 240 road points within reach of a unit, drawn from 940 road points sampled every 200 ft. For the six cable units:
 
 | Unit | Acres | Feasible corridors | Coverage | Equipment class | Difficulty |
 |---|---|---|---|---|---|
-| 401 | 30 | 0 of 68 | 0 % | none from any road within 2,000 ft | High: needs a spur road or a different system |
+| 401 | 30 | 0 of 68 | 0 % | no feasible corridor from any landing within 2,000 ft | High: needs a spur road or a different system |
 | 402 | 39 | 182 of 374 | 70 % | long-span yarder | Moderate |
 | 403 | 34 | 124 of 551 | 52 % | long-span yarder | Moderate |
 | 404 | 51 | 205 of 2,022 | 61 % | intermediate support needed | Moderate |
@@ -71,7 +71,7 @@ the boundary as an internal restriction and netted out of treatable acres.
 
 The same screen runs on the tractor units as a check; their results are reported on the sheets as what
 would happen if cable were required. Each unit also gets a profile sheet (best corridor from each selected
-landing, with chord, mid-span deflection and minimum clearance drawn), a route table of distinct settings
+landing, with chord, mid-span deflection and minimum clearance drawn), and, where any corridor is feasible, a route table of distinct settings
 with chord slope and yarding direction, and external and average yarding distances as the Forest Service
 *Cable Logging Systems* guide defines them. Sale-level figures cover slope by unit, deflection across all
 corridors, equipment class, difficulty, an equipment-selection matrix of span against chord slope, and
@@ -91,7 +91,8 @@ stratum standard, the sale as a whole meets its 10 % standard, and four units fa
 
 ### Standards followed
 
-Map layout after Forest Service sale area maps: units filled by yarding method, treatment block boundary,
+Map layout after Forest Service sale area maps: units colored by yarding method (pale fills with a dashed dark
+outline on the overview, cased outlines on the unit sheets), treatment block boundary,
 streamcourse protection, roads with numbers, 40 ft contours with 200 ft index, PLSS with township and
 range, unit table, 11x17, as vector print PDF (300 dpi rasters) and as GeoPDF for Avenza. Symbology
 reworked against a current Forest Service sale area map, Patterson's relief-shading guidance, Jenny and Kelso's
@@ -124,11 +125,11 @@ kept in git. JPEG previews of everything are in `output/previews`.
 
 | Script | Output |
 |---|---|
-| `01_get_data.py` | public vectors to `data/raw`; `ept_fetch.py` pulls the LiDAR nodes |
+| `01_get_data.py` | public vectors to `data/raw` (Census TIGER county roads downloaded separately and saved as `tiger_roads.geojson`); `ept_fetch.py` pulls the LiDAR nodes |
 | `02_build_terrain.py` | DTM, DSM, CHM, slope, planning slope, aspect, hillshade, cover, dominant height, yarding class |
 | `02b_quicklooks.py` | color quicklooks of the products |
 | `02c_relief_tint.py` | pre-composed relief tint (hillshade x pale yarding-class tints) for the unit sheets |
-| `03_delineate_units.py` | demonstration units, riparian and exclusion buffers, clipped streams |
+| `03_delineate_units.py` | demonstration units, riparian and exclusion buffers, clipped streams, 40 ft contours, operable mask |
 | `04_cable_analysis.py` | landings, corridors, per-unit skyline feasibility |
 | `04b_cable_figures.py` | profile sheets, route tables, corridor maps, all sale-level figures, EYD and AYD, from the saved corridors |
 | `05_unit_maps.py` | 11x17 unit map series and overview, print PDF and GeoPDF (PyQGIS) |
@@ -136,7 +137,7 @@ kept in git. JPEG previews of everything are in `output/previews`.
 | `07_previews.py` | JPEG previews and index |
 | `08_package_gis.py` | distributable GeoPackage with metadata, packaged rasters |
 
-Runs on QGIS 3.44's bundled Python (GDAL, PDAL, NumPy, SciPy, PyQGIS, matplotlib, ReportLab, openpyxl).
+Runs on QGIS 3.44's bundled Python (GDAL, PDAL, NumPy, SciPy, PyQGIS, matplotlib, ReportLab, openpyxl, pypdf, PyMuPDF, Pillow).
 No ArcGIS required. The full run from download to previews takes about two hours on a laptop.
 
 ## What I would do differently

@@ -5,12 +5,12 @@ feet, the coordinate system used on Plumas timber sale maps), convert Z from met
 then write
   dtm   ground returns (class 2), IDW, 3 ft cells
   dsm   first returns, max, 3 ft cells
-  chm   height above ground of first returns (hag_dem against the DTM), max, 3 ft cells, capped at 300 ft
+  chm   height above ground of all non-noise returns (hag_dem against the DTM), max, 3 ft cells, capped at 300 ft
 Tiles are mosaicked with GDAL, then derived:
   slope_pct, aspect_deg, hillshade, canopy_cover_66ft (share of CHM > 6.5 ft in a 66 ft window),
   dom_height_66ft (95th percentile CHM in a 66 ft window), yarding_class (1 ground-based <= 35 %,
   2 marginal 35-50 %, 3 cable > 50 %, from slope smoothed over a 99 ft window).
-Run: python-qgis-ltr.bat scripts\02_build_terrain.py
+Run: python-qgis-ltr.bat scripts/02_build_terrain.py
 """
 import glob, json, os, subprocess, sys, time
 import numpy as np
@@ -18,7 +18,7 @@ from osgeo import gdal, ogr, osr
 from scipy import ndimage
 gdal.UseExceptions(); osr.UseExceptions()
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RAW, WORK, OUT = (os.path.join(ROOT, "data", d) for d in ("raw", "work", "work"))
+RAW, WORK = (os.path.join(ROOT, "data", d) for d in ("raw", "work"))
 os.makedirs(WORK, exist_ok=True)
 PDAL = r"C:\Program Files\QGIS 3.44.12\bin\pdal.exe"
 CRS = "EPSG:2226"; CELL = 3.0; M_TO_FT = 3.28083333333
@@ -36,12 +36,6 @@ def run_pipeline(stages, tag):
     p = os.path.join(WORK, f"_pipe_{tag}.json"); json.dump({"pipeline": stages}, open(p, "w"))
     r = subprocess.run([PDAL, "pipeline", p, "--stream"], capture_output=True, text=True)
     if r.returncode: raise RuntimeError(r.stderr[-1500:])
-
-def head(laz):
-    return [laz,
-            {"type": "filters.reprojection", "out_srs": CRS},
-            {"type": "filters.assign", "value": [f"Z = Z * {M_TO_FT}"]},
-            {"type": "filters.crop", "polygon": wkt}]
 
 def writer(name, dim="Z", out="max", bounds=None):
     # bounds are mandatory in streaming mode: without them PDAL sizes the raster from the reader's header
@@ -172,6 +166,6 @@ stats = dict(cells=int(valid.sum()), acres=round(float(valid.sum()) * CELL * CEL
              slope_mean_pct=round(float(np.nanmean(slope)), 1), slope_plan_median_pct=round(float(np.nanmedian(slope_plan)), 1), pct_ground_based=round(float((ycls[valid] == 1).mean() * 100), 1),
              pct_marginal=round(float((ycls[valid] == 2).mean() * 100), 1), pct_cable=round(float((ycls[valid] == 3).mean() * 100), 1),
              canopy_cover_mean=round(float(cover[valid].mean() * 100), 1), chm_p95_ft=round(float(np.percentile(chm[valid], 95)), 1),
-             dtm_min_ft=round(float(np.nanmin(read(dtm_p)[0])), 0), dtm_max_ft=round(float(np.nanmax(read(dtm_p)[0])), 0))
+             dtm_min_ft=round(float(np.nanmin(dtm_a)), 0), dtm_max_ft=round(float(np.nanmax(dtm_a)), 0))
 json.dump(stats, open(os.path.join(WORK, "terrain_summary.json"), "w"), indent=1); print(stats)
 print(f"done in {time.time()-t0:.0f}s")

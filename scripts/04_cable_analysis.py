@@ -1,6 +1,7 @@
 """04_cable_analysis.py - planning-level skyline feasibility for every harvest unit.
 
-For each unit: candidate landings on NFS roads within 300 ft of the unit, corridors cast every 10 degrees
+For each unit: candidate landings sampled every 200 ft along NFS and Census TIGER roads within 500 ft of the
+unit (nearest road points up to 2,000 ft as a fallback), corridors cast every 5 degrees (10 on tractor units)
 from each landing to a tailhold 100 ft past the far boundary, DTM profiles every 10 ft, chord geometry for a
 50 ft tower (70 ft alternative) and a 10 ft tailhold anchor. Feasible when the ground stays 10 ft or more
 below the chord and mid-span deflection is at least 6 % of span. See docs/methods.md.
@@ -8,19 +9,14 @@ below the chord and mid-span deflection is at least 6 % of span. See docs/method
 Outputs
   data/work/cable.gpkg          landings, corridors (all, with feasibility attributes)
   output/cable/unit_summary.csv one row per unit
-  output/cable/Unit_<id>_profiles.png     the best corridors' profiles with chord and clearance
-  output/cable/Unit_<id>_corridor_map.png corridor map on the hillshade
-  output/cable/Fig*.png                   sale-level figures: slope, deflection, equipment, difficulty
-Run: python-qgis-ltr.bat scripts\04_cable_analysis.py
+Profiles, route tables, corridor maps and the sale-level figures are drawn by 04b_cable_figures.py.
+Run: python-qgis-ltr.bat scripts/04_cable_analysis.py
 """
 import csv
 import json
 import math
 import os
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
 from osgeo import gdal, ogr, osr
 from scipy.ndimage import map_coordinates
@@ -40,7 +36,6 @@ SPAN_CLASSES = [(1000, "Small yarder"), (1800, "Medium yarder"), (3000, "Long-sp
 dtm_ds = gdal.Open(os.path.join(WORK, "dtm_3ft.tif")); gt = dtm_ds.GetGeoTransform()
 dtm = dtm_ds.GetRasterBand(1).ReadAsArray().astype("float32"); nd = dtm_ds.GetRasterBand(1).GetNoDataValue()
 dtm = np.where(dtm == nd, np.nan, dtm)
-hs_ds = gdal.Open(os.path.join(WORK, "hillshade.tif")); hs = hs_ds.GetRasterBand(1).ReadAsArray()
 sp = osr.SpatialReference(); sp.ImportFromWkt(dtm_ds.GetProjection()); sp.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
 s4326 = osr.SpatialReference(); s4326.ImportFromEPSG(4326); s4326.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
 to_sp = osr.CoordinateTransformation(s4326, sp)
@@ -90,7 +85,7 @@ def analyse_corridor(x0, y0, x1, y1, tower):
     deflection = clearance[mid] / span
     min_clear = float(clearance[1:-1].min()) if n > 2 else float(clearance.min())
     feasible = bool(min_clear >= MIN_CLEAR and deflection >= MIN_DEFLECTION)
-    grade = (z[-1] - z[0]) / span * 100          # positive = tailhold above landing = uphill yarding to the landing? no: logs travel to landing
+    grade = (z[-1] - z[0]) / span * 100          # chord slope: positive = tailhold above the landing = downhill yarding to the landing
     seg_slope = np.abs(np.diff(z)) / STEP * 100
     span_class = next(lbl for lim, lbl in SPAN_CLASSES if span <= lim)
     return dict(span=span, deflection=float(deflection), min_clear=min_clear, feasible=feasible, grade=float(grade),
@@ -158,7 +153,7 @@ for attrs, g in unit_geoms():
             th = cast_tailhold(g, x0, y0, b)
             if not th:
                 continue
-            x1, y1, inside = th
+            x1, y1, _ = th
             r = analyse_corridor(x0, y0, x1, y1, TOWER)
             if not r:
                 continue
@@ -215,6 +210,8 @@ for attrs, g in unit_geoms():
 
     # profiles, route tables, corridor maps and the sale-level figures are drawn by 04b_cable_figures.py from cable.gpkg
 cds = None
+if not summary:
+    raise SystemExit("no units in planning.gpkg - run 03 first")
 
 with open(os.path.join(OUT, "unit_summary.csv"), "w", newline="") as fh:
     w = csv.DictWriter(fh, fieldnames=list(summary[0].keys())); w.writeheader(); w.writerows(summary)

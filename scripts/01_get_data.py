@@ -11,7 +11,7 @@ Sources
   USGS NHD                                -> flowlines, waterbodies
   BLM PLSS CadNSDI                        -> townships, sections
   USGS 3DEP  CA_NoCAL_Wildfires_PlumasNF B1/B2 2018 (QL1) -> LAZ tiles intersecting the AOI
-Run with QGIS's bundled Python:  python-qgis-ltr.bat scripts\01_get_data.py [--download]
+Run with QGIS's bundled Python:  python-qgis-ltr.bat scripts/01_get_data.py [--download]
 """
 import json, math, os, re, sys, time, urllib.parse, urllib.request
 from osgeo import ogr, osr

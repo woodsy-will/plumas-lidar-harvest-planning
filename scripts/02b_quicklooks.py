@@ -2,7 +2,7 @@
 
 Reads the GeoTIFFs in data/work (downsampled 4x for speed), draws each with a color ramp or class legend in the
 Okabe-Ito palette, overlays the unit outlines, and writes output/quicklooks/<product>.png at 200 dpi.
-Run: python-qgis-ltr.bat scripts\02b_quicklooks.py
+Run: python-qgis-ltr.bat scripts/02b_quicklooks.py
 """
 import os
 

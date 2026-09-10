@@ -15,7 +15,7 @@ figure set without re-running the corridor casting:
 Colors follow the Okabe-Ito color-blind-safe palette; figures are written at 300 dpi (corridor maps 200 dpi).
 Also appends EYD (external yarding distance) and AYD (average yarding distance, EYD x 0.667 for a
 fan-shaped setting) to unit_summary.csv.
-Run: python-qgis-ltr.bat scripts\04b_cable_figures.py
+Run: python-qgis-ltr.bat scripts/04b_cable_figures.py
 """
 import csv
 import math
@@ -78,7 +78,7 @@ for row in summary:
     chosen = [int(v) for v in row["chosen_landings"].split()] if row["chosen_landings"] else []
     feas = [c for c in cs if c["feasible"]]; all_feas += [(c, row["method"]) for c in feas]
     eyd = max((c["span"] for c in feas), default=0.0); row["eyd_ft"] = round(eyd); row["ayd_ft"] = round(eyd * 0.667)
-    row["uphill_share_pct"] = round(100 - float(row["downhill_share_pct"]), 1)
+    row["uphill_share_pct"] = round(100 - float(row["downhill_share_pct"]), 1) if feas else 0.0
     # best corridor per selected landing (then per other landing) for distinct settings
     order = chosen + sorted({c["landing"] for c in feas} - set(chosen))
     picks = []
@@ -126,6 +126,7 @@ for row in summary:
         if all(not (r["landing"] == c["landing"] and min(abs(r["bearing"] - c["bearing"]), 360 - abs(r["bearing"] - c["bearing"])) < 30) for r in rows):
             rows.append(c)
     rows = rows[:12]
+    title = f"Unit {uid} ({row['method']}, {float(row['acres']):.0f} ac): best feasible routes  |  EYD {row['eyd_ft']} ft, AYD {row['ayd_ft']} ft  |  coverage {row['coverage_pct']} %  |  {row['equipment']}  |  {row['difficulty']}"
     if rows:
         cells = [[f"L{c['landing']}-{c['bearing']:03d}", f"{c['span']:.0f}", f"{((elev_at([c['x1']],[c['y1']])[0]-elev_at([c['x0']],[c['y0']])[0])/c['span']*100):+.0f} %", f"{c['defl']:.1f} %", f"{c['clear']:.0f}",
                   "downhill" if c["downhill"] else "uphill", c["cls"], "70 ft only" if (c["feasible70"] and not c["feasible"]) else "50 ft"] for c in rows]
@@ -137,9 +138,14 @@ for row in summary:
                 cell.set_facecolor("#2f4a37"); cell.set_text_props(color="white", weight="bold")
             elif cidx == 3:
                 v = float(cells[r - 1][3].rstrip(" %")); cell.set_facecolor("#a6d8f0" if v >= 9 else "#f0e442" if v >= 7 else "#f4b183")
-        ax.set_title(f"Unit {uid} ({row['method']}, {float(row['acres']):.0f} ac): best feasible routes  |  EYD {row['eyd_ft']} ft, AYD {row['ayd_ft']} ft  |  coverage {row['coverage_pct']} %  |  {row['equipment']}  |  {row['difficulty']}", fontsize=9)
+        ax.set_title(title, fontsize=9)
         fig.text(0.5, 0.05, "Route = landing number and bearing. Span is horizontal. Available deflection = chord-to-ground height at mid-span as a percent of horizontal span. Chord slope: negative = tailhold below the landing (uphill yarding).\nDeflection shading: blue 9 % and over, yellow 7 to 9 %, orange under 7 % (planning minimum 6 %).", ha="center", va="bottom", fontsize=7.5, color="#333")
         fig.tight_layout(rect=(0, 0.1, 1, 1)); fig.savefig(os.path.join(OUT, f"Unit_{uid}_routes.png"), dpi=DPI); plt.close(fig)
+    else:                                                     # no feasible route: the sheet says so instead of leaving a gap in the figure set
+        fig, ax = plt.subplots(figsize=(10, 1.6)); ax.axis("off"); ax.set_title(title, fontsize=9)
+        ax.text(0.5, 0.5, f"No feasible skyline corridor: {int(row['corridors_feasible'])} of {int(row['corridors'])} corridors cast from {int(row['landings'])} candidate landings "
+                          "met the 10 ft clearance and 6 % deflection tests.", ha="center", va="center", fontsize=8.5, transform=ax.transAxes)
+        fig.tight_layout(); fig.savefig(os.path.join(OUT, f"Unit_{uid}_routes.png"), dpi=DPI); plt.close(fig)
     # corridor map: every corridor cast, feasible in blue, over the hillshade
     if cs:
         g = unit_geom[uid]; env = g.GetEnvelope(); pad = 400
@@ -179,9 +185,10 @@ ax.set_title("Fig 5. Equipment selection matrix: feasible corridors by span and 
 fig.tight_layout(); fig.savefig(os.path.join(OUT, "Fig5_equipment_matrix.png"), dpi=DPI); plt.close(fig)
 # Fig 6: yarding direction by unit
 fig, ax = plt.subplots(figsize=(10, 5))
-ids = [r["unit_id"] for r in summary]; up = [float(r["uphill_share_pct"]) for r in summary]; dn = [float(r["downhill_share_pct"]) for r in summary]
+f6 = [r for r in summary if int(r["corridors_feasible"]) > 0]                        # shares are undefined where nothing is feasible
+ids = [r["unit_id"] for r in f6]; up = [float(r["uphill_share_pct"]) for r in f6]; dn = [float(r["downhill_share_pct"]) for r in f6]
 ax.bar(ids, up, color="#0072B2", label="uphill to landing"); ax.bar(ids, dn, bottom=up, color="#E69F00", label="downhill to landing")
-ax.set_ylabel("% of feasible corridors"); ax.set_xlabel("unit"); ax.tick_params(axis="x", labelsize=7); ax.legend(fontsize=8); ax.set_title("Fig 6. Yarding direction of feasible corridors by unit (downhill yarding is the safety and capability constraint)")
+ax.set_ylabel("% of feasible corridors"); ax.set_xlabel("unit"); ax.tick_params(axis="x", labelsize=7); ax.legend(fontsize=8); ax.set_title("Fig 6. Yarding direction of feasible corridors by unit (downhill yarding is the safety and capability constraint)\n(units with no feasible corridor omitted)")
 fig.tight_layout(); fig.savefig(os.path.join(OUT, "Fig6_yarding_direction.png"), dpi=DPI); plt.close(fig)
 # Fig 1 to 4: sale-level summaries
 all_c = [c for v in corridors.values() for c in v]

@@ -2,7 +2,7 @@
 
 Renders the overview and every unit sheet to JPEG (site-friendly), copies the cable figures, review sheet
 first pages and quicklooks into output/previews, and writes output/previews/INDEX.md listing everything.
-Run: python-qgis-ltr.bat scripts\07_previews.py
+Run: python-qgis-ltr.bat scripts/07_previews.py
 """
 import glob
 import os
@@ -18,7 +18,9 @@ lines = ["# Preview index", ""]
 
 
 def pdf_to_jpg(pdf, dst, dpi=110, page=0):
-    d = pymupdf.open(pdf); pix = d[page].get_pixmap(dpi=dpi); pix.save(dst.replace(".jpg", ".png"))
+    with pymupdf.open(pdf) as d:
+        pix = d[page].get_pixmap(dpi=dpi)
+    pix.save(dst.replace(".jpg", ".png"))
     Image.open(dst.replace(".jpg", ".png")).convert("RGB").save(dst, quality=88, optimize=True, subsampling=0); os.remove(dst.replace(".jpg", ".png"))
 
 
@@ -37,8 +39,6 @@ for pdf in sorted(glob.glob(os.path.join(OUT, "review", "Unit_*_Review.pdf"))):
     dst = os.path.join(PV, "review_" + os.path.basename(pdf).replace(".pdf", ".jpg")); pdf_to_jpg(pdf, dst, dpi=90); lines.append(f"- {os.path.basename(dst)}")
 lines.append("\n## Terrain quicklooks")
 for png in sorted(glob.glob(os.path.join(OUT, "quicklooks", "*.png"))):
-    if png.endswith(".aux.xml") or "review_" in png:
-        continue
     dst = os.path.join(PV, "terrain_" + os.path.basename(png).replace(".png", ".jpg"))
     im = Image.open(png).convert("RGB"); im.thumbnail((2400, 2400)); im.save(dst, quality=88, optimize=True, subsampling=0); lines.append(f"- {os.path.basename(dst)}")
 open(os.path.join(PV, "INDEX.md"), "w").write("\n".join(lines) + "\n")
