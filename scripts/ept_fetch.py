@@ -93,5 +93,5 @@ with cf.ThreadPoolExecutor(max_workers=12) as pool:
         total += n; done += 1
         if done % 100 == 0 or done == len(selected):
             print(f"  {done}/{len(selected)} nodes, {total/1e9:.2f} GB, {total/1e6/max(1, time.time()-t):.1f} MB/s", flush=True)
-open(os.path.join(ROOT, "data", "raw", "ept_nodes.txt"), "w").write("\n".join(os.path.join(NODES, f"{k}.laz") for k in selected))
+open(os.path.join(ROOT, "data", "work", "ept_nodes.txt"), "w").write("\n".join(os.path.join(NODES, f"{k}.laz") for k in selected))
 print(f"done: {len(selected)} node files, {total/1e9:.2f} GB in {time.time()-t:.0f} s")

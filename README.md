@@ -10,6 +10,12 @@ appear here. Everything in this repository was written from scratch and computed
 The harvest units are demonstration polygons delineated by the documented rules in `docs/methods.md`;
 they are not a Forest Service proposal, and no field verification has been done.
 
+![Unit 404 sheet: LiDAR hillshade with yarding-class tints, cased unit outlines, stream exclusion zones, skyline corridors from four landings, legend and unit panel](output/previews/map_Unit_404.jpg)
+
+| Overview sheet | Skyline profiles, unit 404 | Field-data review, unit 101 | Yarding class |
+|---|---|---|---|
+| ![Overview sheet](output/previews/map_Overview.jpg) | ![Skyline profiles](output/previews/cable_Unit_404_profiles.jpg) | ![Review sheet](output/previews/review_Unit_101_Review.jpg) | ![Yarding class](output/previews/terrain_yarding_class.jpg) |
+
 ## Area
 
 The Community Protection (Central and West Slope, decision signed 2025) treatment block on National Forest
@@ -142,6 +148,38 @@ kept in git. JPEG previews of everything are in `output/previews`.
 
 Runs on QGIS 3.44's bundled Python (GDAL, PDAL, NumPy, SciPy, PyQGIS, matplotlib, ReportLab, openpyxl, pypdf, PyMuPDF, Pillow).
 No ArcGIS required. The full run from download to previews takes about two hours on a laptop.
+
+## How to run
+
+Every script runs on the Python bundled with QGIS 3.44 (`python-qgis-ltr.bat` on Windows). From the repository
+root, in order:
+
+```
+set PY="C:\Program Files\QGIS 3.44.12\bin\python-qgis-ltr.bat"
+%PY% scripts\01_get_data.py          & rem public vectors to data/raw (idempotent)
+%PY% scripts\ept_fetch.py            & rem LiDAR nodes to data/raw/ept (4.3 GB), node list to data/work
+%PY% scripts\02_build_terrain.py     & rem about 2 h; use --max-batches N to run in chunks
+%PY% scripts\02b_quicklooks.py & %PY% scripts\02c_relief_tint.py
+%PY% scripts\03_delineate_units.py
+%PY% scripts\04_cable_analysis.py    & rem about 12 min
+%PY% scripts\04b_cable_figures.py
+%PY% scripts\05_unit_maps.py         & rem ONLY_UNITS="404 101" renders a subset
+%PY% scripts\06_review_sheets.py
+%PY% scripts\07_previews.py & %PY% scripts\08_package_gis.py
+```
+
+## Software
+
+QGIS 3.44.12 (PyQGIS), GDAL 3.13, PDAL 2.10, Python 3.12, NumPy, SciPy, matplotlib, ReportLab, openpyxl,
+pypdf, PyMuPDF, Pillow, all as shipped with QGIS 3.44. No ArcGIS required. Developed on Windows 11;
+the scripts reference the QGIS install path and the Windows Fonts folder for Arial.
+
+## License and citation
+
+Code: MIT (`LICENSE`). Maps, figures, review sheets and packaged data: CC BY 4.0 (`LICENSE-MAPS-DATA.md`),
+which also lists the terms of each public input. Cite with `CITATION.cff` or as:
+William Steinley (2026), *Mohawk Valley West Slope: LiDAR-based harvest-unit planning*, v1.0,
+https://github.com/woodsy-will/plumas-lidar-harvest-planning. Contact: through https://woodsy-will.github.io/.
 
 ## Limitations
 

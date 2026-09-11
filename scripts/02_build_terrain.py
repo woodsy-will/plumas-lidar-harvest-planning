@@ -68,7 +68,7 @@ def batch_bounds(tag):
     snap = lambda v, up: (np.ceil(v / CELL) if up else np.floor(v / CELL)) * CELL
     return snap(x0, False), snap(x1, True), snap(y0, False), snap(y1, True)
 
-# Inputs: either USGS LAZ tiles in data/raw/laz, or Entwine node files listed in data/raw/ept_nodes.txt
+# Inputs: either USGS LAZ tiles in data/raw/laz, or Entwine node files listed in data/work/ept_nodes.txt
 # (see ept_fetch.py). Node files are grouped into spatial batches by their depth-8 ancestor so each PDAL run
 # covers roughly a 340 m square; PDAL merges multiple readers automatically.
 def ancestor(key, depth=8):
@@ -76,7 +76,7 @@ def ancestor(key, depth=8):
     s = 2 ** (d - depth) if d >= depth else 1
     return f"{depth}-{x // s}-{y // s}-{z // s}" if d >= depth else f"top-{os.path.basename(key)[:-4]}"
 
-nodes_list = os.path.join(RAW, "ept_nodes.txt")
+nodes_list = os.path.join(WORK, "ept_nodes.txt")   # machine-specific absolute paths; kept out of git
 if os.path.exists(nodes_list):
     batches = {}
     for p in open(nodes_list).read().split("\n"):

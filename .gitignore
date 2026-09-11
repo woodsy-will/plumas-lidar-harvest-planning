@@ -16,3 +16,5 @@ output/maps/*.pdf
 output/maps/geopdf/
 output/cable/*.png
 output/_superseded*/
+data/raw/ept_nodes.txt
+scripts/*.bak-*

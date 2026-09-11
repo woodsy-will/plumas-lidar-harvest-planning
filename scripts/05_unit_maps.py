@@ -115,10 +115,10 @@ for col, w in (((255, 255, 255, 230), 1.4), ((40, 40, 40, 255), 0.6)):
 roads.renderer().setSymbol(rsym); label(roads, "\"id\"", 7, "40,40,40", True)
 tiger = vl(os.path.join(RAW, "tiger_roads.geojson"), None, "Local roads (Census TIGER)"); tiger.renderer().setSymbol(line("90,90,90,255", 0.4, "dash"))
 contours = vl(gpkg, "contours", "Contours, 40 ft (index 200 ft)")
-ccats = [QgsRendererCategory(0, line("160,82,45,150", 0.16), "40 ft"), QgsRendererCategory(1, line("160,82,45,220", 0.34), "200 ft index")]   # USGS contour brown, held back so the units lead
-contours.setRenderer(QgsCategorizedSymbolRenderer("index", ccats)); contours.setSubsetString("index = 1 OR index = 0")
+ccats = [QgsRendererCategory(0, line("150,75,40,210", 0.22), "40 ft"), QgsRendererCategory(1, line("150,75,40,255", 0.45), "200 ft index")]   # USGS contour brown, held back so the units lead
+contours.setRenderer(QgsCategorizedSymbolRenderer("index", ccats)); contours.setSubsetString('"index" IN (0, 1)')   # "index" must be quoted: it is an SQL reserved word, and the unquoted filter silently returned no features
 cl_s = QgsPalLayerSettings(); cl_s.fieldName = "round(\"elev\")"; cl_s.isExpression = True; cl_s.enabled = True; cl_s.placement = QgsPalLayerSettings.Line
-cl_f = QgsTextFormat(); cl_f.setFont(QFont("Arial", 6)); cl_f.setSize(6); cl_f.setColor(QColor(140, 75, 40)); cl_f.buffer().setEnabled(True); cl_f.buffer().setSize(0.7); cl_s.setFormat(cl_f)
+cl_f = QgsTextFormat(); cl_f.setFont(QFont("Arial", 7)); cl_f.setSize(7); cl_f.setColor(QColor(140, 75, 40)); cl_f.buffer().setEnabled(True); cl_f.buffer().setSize(1.0); cl_s.setFormat(cl_f)
 from qgis.core import QgsRuleBasedLabeling
 cl_root = QgsRuleBasedLabeling.Rule(None); cl_rule = QgsRuleBasedLabeling.Rule(cl_s); cl_rule.setFilterExpression("\"index\" = 1"); cl_root.appendChild(cl_rule)
 contours.setLabelsEnabled(True); contours.setLabeling(QgsRuleBasedLabeling(cl_root))
@@ -143,7 +143,7 @@ if have_cable:
     corr = vl(cable, "corridors", "Feasible skyline corridors from the selected landings (logs travel toward the landing)"); corr.setSubsetString("feasible = 1"); corr.renderer().setSymbol(line("0,0,0,170", 0.3))
     landings = vl(cable, "landings", "Selected landings on roads, this unit"); landings.setSubsetString("corridors_ok > 0")
     landings.renderer().setSymbol(QgsMarkerSymbol.createSimple({"name": "triangle", "color": "240,228,66,255", "outline_color": "0,0,0,255", "size": "2.8"}))
-layers = [cur, units] + ([landings, corr] if have_cable else []) + [roads, tiger, streams, eez, rca, sections, block, contours, relief]
+layers = [cur, units] + ([landings, corr] if have_cable else []) + [roads, tiger, streams, contours, eez, rca, sections, block, relief]
 proj.addMapLayer(units_plain, False); proj.addMapLayer(units_inset, False)
 for l in layers:
     proj.addMapLayer(l, False)
@@ -238,15 +238,15 @@ def make_layout(name, feat=None, extent=None, scale=None):
         if l is streams:                                         # drop the 'Other NHD' entry from the legend
             QgsMapLayerLegendUtils.setLegendNodeOrder(node, [0, 1, 2]); leg.model().refreshLayerLegend(node)
     leg.setSymbolHeight(2.4); leg.setSymbolWidth(6); leg.setLineSpacing(0.4); leg.setBoxSpace(1.0)
-    leg.setStyleMargin(QgsLegendStyle.Subgroup, QgsLegendStyle.Top, 1.2); leg.setStyleMargin(QgsLegendStyle.Symbol, QgsLegendStyle.Top, 0.6)
+    leg.setStyleMargin(QgsLegendStyle.Subgroup, QgsLegendStyle.Top, 2.0); leg.setStyleMargin(QgsLegendStyle.Symbol, QgsLegendStyle.Top, 1.4)
     for style, size in ((QgsLegendStyle.Title, 10), (QgsLegendStyle.Group, 8), (QgsLegendStyle.Subgroup, 8), (QgsLegendStyle.SymbolLabel, 7.5)):
         st = leg.style(style); fnt = QFont("Arial"); fnt.setPointSizeF(size); fnt.setBold(style in (QgsLegendStyle.Title, QgsLegendStyle.Subgroup)); st.setFont(fnt); leg.setStyle(style, st)
     leg.attemptMove(QgsLayoutPoint(px, ly, QgsUnitTypes.LayoutMillimeters)); leg.attemptResize(QgsLayoutSize(pw, 100, QgsUnitTypes.LayoutMillimeters)); layout.addLayoutItem(leg)
     sb = QgsLayoutItemScaleBar(layout); sb.setLinkedMap(m); sb.setStyle("Single Box"); sb.setUnits(QgsUnitTypes.DistanceFeet); sb.setUnitLabel("ft"); sb.setNumberOfSegments(2); sb.setNumberOfSegmentsLeft(0); sb.setUnitsPerSegment(1000 if scale and scale <= 12000 else 2000)
     sb.setHeight(2.5); sb.setLabelBarSpace(1); sb.attemptMove(QgsLayoutPoint(10, 250, QgsUnitTypes.LayoutMillimeters)); layout.addLayoutItem(sb)
-    add_label(layout, f"Scale 1:{int(round(m.scale())):,}   Contour interval 40 ft   North: grid, CA State Plane Zone 2", 100, 251, 150, 6, 8)
+    add_label(layout, f"Scale 1:{int(round(m.scale())):,}   Contours 40 ft   North: grid, CA State Plane Zone 2", 148, 251, 92, 6, 7)
     add_label(layout, f"Sheet {SHEET[0]} of {SHEET[1]}   {DATE}", 250, 251, 56, 6, 8, False, Qt.AlignRight)
-    north = QgsLayoutItemPicture(layout); north.setPicturePath(os.path.join(QgsApplication.prefixPath(), "svg", "arrows", "NorthArrow_02.svg")); north.attemptMove(QgsLayoutPoint(290, 226, QgsUnitTypes.LayoutMillimeters)); north.attemptResize(QgsLayoutSize(14, 18, QgsUnitTypes.LayoutMillimeters)); layout.addLayoutItem(north)
+    north = QgsLayoutItemPicture(layout); north.setPicturePath(os.path.join(QgsApplication.prefixPath(), "svg", "arrows", "NorthArrow_04.svg")); north.attemptMove(QgsLayoutPoint(240.5, 248.5, QgsUnitTypes.LayoutMillimeters)); north.attemptResize(QgsLayoutSize(7, 7.5, QgsUnitTypes.LayoutMillimeters)); layout.addLayoutItem(north)
     if feat is not None:
         ins = QgsLayoutItemMap(layout); ins.setKeepLayerSet(True); ins.setLayers([cur, units_inset, block, hill]); ins.setCrs(CRS); ins.attemptMove(QgsLayoutPoint(px, 230, QgsUnitTypes.LayoutMillimeters)); ins.attemptResize(QgsLayoutSize(pw, 34, QgsUnitTypes.LayoutMillimeters)); ins.zoomToExtent(block_ext.buffered(1500)); ins.setFrameEnabled(True)
         ov = QgsLayoutItemMapOverview("cur", ins); ov.setLinkedMap(m); ov.setFrameSymbol(fill("255,0,0,40", "255,0,0,255", 0.5)); ins.overviews().addOverview(ov); layout.addLayoutItem(ins)
