@@ -88,6 +88,10 @@ Operable ground before splitting; `v` = 1. Kept so a reviewer can see what the u
 | max_slope_pct | real | steepest ground slope along the profile |
 | span_class | text | Small yarder (<= 1,000 ft), Medium (<= 1,800), Long-span (<= 3,000), Intermediate support needed |
 
+The payload estimate (allowable load at mid-span for a 7/8 in skyline, methods.md item 6) is computed in
+`04b_cable_figures.py` from span_ft, deflection_pct and the chord slope; it is not stored in the GeoPackage and
+appears on the route tables, the profile sheets, Fig 7 and `unit_summary.csv`.
+
 ### plots (Point, 798 features)
 
 Simulated cruise plots; the tree records are in `output/review/cruise_data.xlsx`.
@@ -129,7 +133,15 @@ dominant height, each with title, legend or color ramp, one-mile scale bar, nort
 ## Tabular outputs
 
 - `output/cable/unit_summary.csv`: one row per unit from the cable screen: corridors cast and feasible,
-  coverage, mean deflection, equipment class, difficulty, chosen landings, downhill share, EYD, AYD.
-- `output/review/cruise_data.xlsx`: Plots, Trees, Unit summary, Stand tables, Stock tables and Standards and assumptions sheets; the unit summary carries BA with
-  sampling error, TPA, QMD, SDI, CWHR, sawtimber and biomass BA, CV, plots needed and the standard check.
-- `output/review/qa_summary.csv`: the sale-level QA table printed on the first page of `Unit_Reviews.pdf`.
+  coverage, mean deflection, equipment class, difficulty, chosen landings, downhill share, EYD, AYD, uphill
+  share, and two payload columns from `04b_cable_figures.py`: `max_payload_lb`, the largest allowable load at
+  mid-span (lb, carriage plus logs, 7/8 in extra-improved plow-steel skyline at a safe working load of 26.5 kips,
+  available deflection taken as loaded) among the unit's feasible corridors, and `payload_at_best_lb`, the same
+  for the corridor with the best available deflection from the selected landings; both blank where no corridor
+  is feasible.
+- `output/review/cruise_data.xlsx`: a READ ME sheet first, stating in its first cell that every plot and tree is simulated from LiDAR canopy metrics with planted
+  recording errors (not field data) and listing the six data sheets; then Plots, Trees, Unit summary, Stand tables, Stock tables and Standards and assumptions.
+  Plots carry cruiser `SIM` and date `simulated`; the unit summary carries BA with sampling error, TPA, QMD, SDI, CWHR, sawtimber and biomass BA, biomass green
+  tons per acre, CV, plots needed and the standard check; Standards and assumptions has columns item, value, source and url.
+- `output/review/qa_summary.csv`: the sale-level QA table printed on the first page of `Unit_Reviews.pdf`, plus a `data` column whose value is `simulated`
+  on every row.

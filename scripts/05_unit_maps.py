@@ -205,6 +205,8 @@ def make_layout(name, feat=None, extent=None, scale=None):
             rows += [("", ""), ("YARDING SCREEN", ""), ("Landings selected", f"{s['landings_used']} of {s['landings']} candidates"), ("Feasible corridors", f"{int(s['corridors_feasible']):,} of {int(s['corridors']):,}  (50 ft tower)"),
                      ("With 70 ft tower", f"{int(s['corridors_feasible_70ft']):,}"), ("Unit coverage", f"{s['coverage_pct']} %"), ("Mean deflection", f"{s['mean_deflection_pct']} %"),
                      ("Downhill yarding", f"{s['downhill_share_pct']} % of corridors"), ("Longest feasible span", f"{float(s['max_feasible_span_ft']):,.0f} ft"), ("Equipment class", s["equipment"]), ("Difficulty", s["difficulty"])]
+            if s.get("payload_at_best_lb", "").strip():
+                rows.append(("Allowable load", f"{float(s['payload_at_best_lb']):,.0f} lb  (7/8 in skyline, SF 3)"))   # best corridor, mid-span; method in docs/methods.md
         elif s:
             rows += [("", ""), ("YARDING SCREEN", ""), ("System", "Ground-based (slope <= 35 %)"), ("Skyline check", f"{int(s['corridors_feasible']):,} feasible corridors, {float(s['coverage_pct']):.0f} % corridor coverage if cable were required")]
         y = 34

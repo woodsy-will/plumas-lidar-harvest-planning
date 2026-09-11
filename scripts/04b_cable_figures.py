@@ -12,9 +12,11 @@ figure set without re-running the corridor casting:
                              uphill per the Forest Service Cable Logging Systems guide
   Unit_<id>_corridor_map.png every corridor cast over the hillshade, feasible in blue, with the selected landings
   Fig1 to Fig4               slope by unit, deflection histogram, equipment class, difficulty
+  Fig7_payload.png           allowable load at mid-span vs span for every feasible corridor, 7/8 in extra-improved
+                             plow-steel skyline at safe working load (rigid-link statics after Lysons and Mann 1967, PNW-39)
 Colors follow the Okabe-Ito color-blind-safe palette; figures are written at 300 dpi (corridor maps 200 dpi).
 Also appends EYD (external yarding distance) and AYD (average yarding distance, EYD x 0.667 for a
-fan-shaped setting) to unit_summary.csv.
+fan-shaped setting) to unit_summary.csv, plus max_payload_lb and payload_at_best_lb from the payload estimate.
 Run: python-qgis-ltr.bat scripts/04b_cable_figures.py
 """
 import csv
@@ -36,6 +38,10 @@ WORK, OUT = os.path.join(ROOT, "data", "work"), os.path.join(ROOT, "output", "ca
 TOWER, ANCHOR, STEP = 50.0, 10.0, 10.0
 SPAN_CLASSES = [(1000, "Small yarder"), (1800, "Medium yarder"), (3000, "Long-span yarder"), (1e9, "Intermediate support needed")]
 MIN_DEFLECTION = 6.0; DPI = 300
+# Skyline for the payload estimate: 7/8 in extra-improved plow steel, 6x19 IWRC, 1.42 lb/ft, breaking strength 79.6 kips (Lysons and
+# Mann 1967, PNW-39, table 1, p. 24; USFS Cable Logging Systems, table 4-3, p. 25); safe working load = breaking strength / 3 (PNW-39, p. 3)
+SKYLINE, CABLE_W, BREAK_LB, SAFETY = "7/8 in EIPS", 1.42, 79600.0, 3.0
+SWL = BREAK_LB / SAFETY
 BLUE, ORANGE, YELLOW, VERMILLION, GREEN, GREY = "#0072B2", "#E69F00", "#F0E442", "#D55E00", "#009E73", "#bbbbbb"
 hs_ds = gdal.Open(os.path.join(WORK, "hillshade.tif")); hs = hs_ds.GetRasterBand(1).ReadAsArray(); hgt = hs_ds.GetGeoTransform()
 unit_geom = {}
@@ -59,6 +65,24 @@ def profile(x0, y0, x1, y1, tower=TOWER):
     return d, z, chord, chord - z
 
 
+def payload_lb(span, defl_pct, chord_slope):
+    """Allowable load at mid-span (carriage plus logs), lb, for a standing skyline of horizontal span `span` ft, loaded mid-span
+    deflection `defl_pct` percent of span and chord slope `chord_slope` (rise over span; sign ignored, the upper end governs).
+    PNW-39 single-span worksheet: upper-end tension due to cable weight is subtracted from the safe working load and the remainder
+    is divided by the upper-end tension per pound of load (carriage clamped to the skyline, the higher-tension case). Both tensions
+    come from rigid-link statics: two straight links from the supports to the load, each carrying half the cable weight (taken
+    along the chord) at its midpoint. Reproduces PNW-39 tables 2 and 4 within 1 % for span slopes 0 to 55 %. The available
+    deflection (chord to ground) is used as the loaded deflection, the planning assumption; it is optimistic where the ground
+    is close to the chord. No catenary, no carriage weight, single span only."""
+    d, g = defl_pct / 100.0, abs(chord_slope)
+    if d <= 0:
+        return 0.0
+    wc = CABLE_W * span * math.hypot(1.0, g)                                        # cable weight along the chord, lb
+    h_w = wc / (8 * d); t_w = math.hypot(h_w, (g + 2 * d) * h_w + wc / 4)            # upper-end tension from cable weight, lb
+    h_p = 1 / (4 * d); t_p = math.hypot(h_p, (g + 2 * d) * h_p)                      # upper-end tension per lb of load
+    return max(0.0, (SWL - t_w) / t_p)
+
+
 summary = list(csv.DictReader(open(os.path.join(OUT, "unit_summary.csv"))))
 ds = ogr.Open(os.path.join(WORK, "cable.gpkg"))
 corr_l = ds.GetLayerByName("corridors"); land_l = ds.GetLayerByName("landings")
@@ -71,6 +95,11 @@ for f in corr_l:
     corridors.setdefault(f["unit_id"], []).append(dict(landing=f["landing_id"], bearing=f["bearing"], span=f["span_ft"], defl=f["deflection_pct"], clear=f["min_clear_ft"],
                                                       feasible=bool(f["feasible"]), feasible70=bool(f["feasible_70ft"]), downhill=bool(f["downhill"]), max_slope=f["max_slope_pct"], cls=f["span_class"], x0=p0[0], y0=p0[1], x1=p1[0], y1=p1[1]))
 print(len(summary), "units;", sum(len(v) for v in corridors.values()), "corridors")
+all_c = [c for v in corridors.values() for c in v]                                 # chord slope tower top to anchor, then payload
+z_land = elev_at([c["x0"] for c in all_c], [c["y0"] for c in all_c]); z_tail = elev_at([c["x1"] for c in all_c], [c["y1"] for c in all_c])
+for c, za, zb in zip(all_c, z_land, z_tail):
+    c["chord_slope"] = ((zb + ANCHOR) - (za + TOWER)) / c["span"]
+    c["payload"] = payload_lb(c["span"], c["defl"], c["chord_slope"]) if c["feasible"] else None
 
 all_feas = []
 for row in summary:
@@ -79,6 +108,9 @@ for row in summary:
     feas = [c for c in cs if c["feasible"]]; all_feas += [(c, row["method"]) for c in feas]
     eyd = max((c["span"] for c in feas), default=0.0); row["eyd_ft"] = round(eyd); row["ayd_ft"] = round(eyd * 0.667)
     row["uphill_share_pct"] = round(100 - float(row["downhill_share_pct"]), 1) if feas else 0.0
+    row["max_payload_lb"] = round(max(c["payload"] for c in feas)) if feas else ""
+    best_sel = max((c for c in feas if c["landing"] in chosen), key=lambda c: c["defl"], default=None)
+    row["payload_at_best_lb"] = round(best_sel["payload"]) if best_sel else ""
     # best corridor per selected landing (then per other landing) for distinct settings
     order = chosen + sorted({c["landing"] for c in feas} - set(chosen))
     picks = []
@@ -107,6 +139,9 @@ for row in summary:
             ax.set_title(f"Unit {uid}  landing {c['landing']}  bearing {c['bearing']:03d}  span {c['span']:.0f} ft  chord slope {grade:+.0f} %  "
                          f"{'downhill to landing' if c['downhill'] else 'uphill to landing'}  {c['cls']}  {'FEASIBLE' if c['feasible'] else 'not feasible'}", fontsize=9)
             ax.set_ylabel("ft"); ax.grid(alpha=0.3); ax.text(2, z[0] + TOWER + 4, "landing / tower", fontsize=7, color=BLUE); ax.text(d[-1], z[-1] + ANCHOR + 4, "tailhold", fontsize=7, ha="right", color="#333")
+            if c["payload"] is not None:
+                ax.text(0.01, 0.05, f"{SKYLINE} skyline at SWL {SWL / 1000:.1f} kips: allowable load at mid-span {c['payload']:,.0f} lb, carriage plus logs",
+                        transform=ax.transAxes, ha="left", va="bottom", fontsize=7.5, color=BLUE, bbox=dict(fc="white", ec="none", alpha=0.8, pad=1.5))
         axes[-1, 0].set_xlabel("horizontal distance from landing, ft"); axes[0, 0].legend(loc="upper right", fontsize=8)
         fig.tight_layout(); fig.canvas.draw()
         for ax in axes[:, 0]:                                     # profiles are drawn at true scale; state it, as profile drawings require
@@ -129,9 +164,10 @@ for row in summary:
     title = f"Unit {uid} ({row['method']}, {float(row['acres']):.0f} ac): best feasible routes  |  EYD {row['eyd_ft']} ft, AYD {row['ayd_ft']} ft  |  coverage {row['coverage_pct']} %  |  {row['equipment']}  |  {row['difficulty']}"
     if rows:
         cells = [[f"L{c['landing']}-{c['bearing']:03d}", f"{c['span']:.0f}", f"{((elev_at([c['x1']],[c['y1']])[0]-elev_at([c['x0']],[c['y0']])[0])/c['span']*100):+.0f} %", f"{c['defl']:.1f} %", f"{c['clear']:.0f}",
-                  "downhill" if c["downhill"] else "uphill", c["cls"], "70 ft only" if (c["feasible70"] and not c["feasible"]) else "50 ft"] for c in rows]
-        fig, ax = plt.subplots(figsize=(10, 0.35 * len(cells) + 1.4)); ax.axis("off")
-        tb = ax.table(cellText=cells, colLabels=["Route", "Span, ft", "Chord slope", "Avail. deflection", "Min clearance, ft", "Yarding", "System", "Tower"], loc="center", cellLoc="center")
+                  "downhill" if c["downhill"] else "uphill", c["cls"], "70 ft only" if (c["feasible70"] and not c["feasible"]) else "50 ft",
+                  f"{c['payload']:,.0f}" if c["payload"] is not None else "n/a"] for c in rows]
+        fig, ax = plt.subplots(figsize=(11, 0.35 * len(cells) + 1.9)); ax.axis("off")
+        tb = ax.table(cellText=cells, colLabels=["Route", "Span, ft", "Chord slope", "Avail. deflection", "Min clearance, ft", "Yarding", "System", "Tower", "Payload, lb"], loc="center", cellLoc="center")
         tb.auto_set_font_size(False); tb.set_fontsize(8); tb.scale(1, 1.25)
         for (r, cidx), cell in tb.get_celld().items():
             if r == 0:
@@ -139,8 +175,10 @@ for row in summary:
             elif cidx == 3:
                 v = float(cells[r - 1][3].rstrip(" %")); cell.set_facecolor("#a6d8f0" if v >= 9 else "#f0e442" if v >= 7 else "#f4b183")
         ax.set_title(title, fontsize=9)
-        fig.text(0.5, 0.05, "Route = landing number and bearing. Span is horizontal. Available deflection = chord-to-ground height at mid-span as a percent of horizontal span. Chord slope: negative = tailhold below the landing (uphill yarding).\nDeflection shading: blue 9 % and over, yellow 7 to 9 %, orange under 7 % (planning minimum 6 %).", ha="center", va="bottom", fontsize=7.5, color="#333")
-        fig.tight_layout(rect=(0, 0.1, 1, 1)); fig.savefig(os.path.join(OUT, f"Unit_{uid}_routes.png"), dpi=DPI); plt.close(fig)
+        fig.text(0.5, 0.05, "Route = landing number and bearing. Span is horizontal. Available deflection = chord-to-ground height at mid-span as a percent of horizontal span. Chord slope: negative = tailhold below the landing (uphill yarding).\nDeflection shading: blue 9 % and over, yellow 7 to 9 %, orange under 7 % (planning minimum 6 %).\n"
+                          f"Payload: allowable load at mid-span, carriage plus logs, for a {SKYLINE} skyline at safe working load {SWL / 1000:.1f} kips (breaking strength {BREAK_LB / 1000:.1f} kips / {SAFETY:.0f}),\n"
+                          "available deflection taken as the loaded deflection (PNW-39 worksheet, rigid-link statics), optimistic where the ground is close to the chord.", ha="center", va="bottom", fontsize=7.5, color="#333")
+        fig.tight_layout(rect=(0, 0.17, 1, 1)); fig.savefig(os.path.join(OUT, f"Unit_{uid}_routes.png"), dpi=DPI); plt.close(fig)
     else:                                                     # no feasible route: the sheet says so instead of leaving a gap in the figure set
         fig, ax = plt.subplots(figsize=(10, 1.6)); ax.axis("off"); ax.set_title(title, fontsize=9)
         ax.text(0.5, 0.5, f"No feasible skyline corridor: {int(row['corridors_feasible'])} of {int(row['corridors'])} corridors cast from {int(row['landings'])} candidate landings "
@@ -190,8 +228,19 @@ ids = [r["unit_id"] for r in f6]; up = [float(r["uphill_share_pct"]) for r in f6
 ax.bar(ids, up, color="#0072B2", label="uphill to landing"); ax.bar(ids, dn, bottom=up, color="#E69F00", label="downhill to landing")
 ax.set_ylabel("% of feasible corridors"); ax.set_xlabel("unit"); ax.tick_params(axis="x", labelsize=7); ax.legend(fontsize=8); ax.set_title("Fig 6. Yarding direction of feasible corridors by unit (downhill yarding is the safety and capability constraint)\n(units with no feasible corridor omitted)")
 fig.tight_layout(); fig.savefig(os.path.join(OUT, "Fig6_yarding_direction.png"), dpi=DPI); plt.close(fig)
+# Fig 7: payload vs span for every feasible corridor, with level-chord reference curves at 6, 8 and 10 % loaded deflection
+fig, ax = plt.subplots(figsize=(10, 6))
+ax.scatter([c["span"] for c, m in all_feas], [c["payload"] for c, m in all_feas], s=8, c=[BLUE if m == "Cable" else ORANGE for c, m in all_feas], alpha=0.5)
+span7 = np.linspace(200, 3600, 120)
+for dpct, ls in ((6, ":"), (8, "--"), (10, "-")):
+    ax.plot(span7, [payload_lb(s, dpct, 0.0) for s in span7], color="k", lw=0.8, ls=ls, label=f"{dpct} % deflection, level chord")
+ax.scatter([], [], c=BLUE, s=20, label="cable units"); ax.scatter([], [], c=ORANGE, s=20, label="tractor units checked as if cable")
+ax.set_xlim(0, 3600); ax.set_ylim(bottom=0); ax.set_xlabel("feasible corridor span (horizontal), ft"); ax.set_ylabel("allowable load at mid-span, lb (carriage plus logs)")
+ax.set_title(f"Fig 7. Skyline payload estimate for feasible corridors: {SKYLINE} skyline, safe working load {SWL / 1000:.1f} kips (breaking strength {BREAK_LB / 1000:.1f} kips / {SAFETY:.0f})\n"
+             "(PNW-39 worksheet with rigid-link statics, load at mid-span, cable weight included; available deflection taken as loaded deflection, so optimistic)", fontsize=10)
+ax.legend(loc="upper right", fontsize=8); ax.grid(alpha=0.3)
+fig.tight_layout(); fig.savefig(os.path.join(OUT, "Fig7_payload.png"), dpi=DPI); plt.close(fig)
 # Fig 1 to 4: sale-level summaries
-all_c = [c for v in corridors.values() for c in v]
 fig, ax = plt.subplots(figsize=(9, 5))
 ids = [str(r["unit_id"]) for r in summary]; ax.bar(ids, [float(r["slope_mean"]) for r in summary], color=[{"Tractor": ORANGE, "Cable": BLUE, "Hand Thinning": GREEN}[r["method"]] for r in summary])
 ax.axhline(35, color="k", ls="--", lw=1); ax.text(0.5, 36, "35 % ground-based limit", fontsize=8); ax.set_ylabel("mean planning slope, %"); ax.set_xlabel("unit"); ax.set_title("Fig 1. Mean slope by unit and assigned system (orange tractor, blue cable)"); ax.tick_params(axis="x", labelsize=7)

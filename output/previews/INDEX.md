@@ -34,6 +34,7 @@
 - cable_Fig4_difficulty.jpg
 - cable_Fig5_equipment_matrix.jpg
 - cable_Fig6_yarding_direction.jpg
+- cable_Fig7_payload.jpg
 - cable_Unit_101_corridor_map.jpg
 - cable_Unit_101_profiles.jpg
 - cable_Unit_101_routes.jpg

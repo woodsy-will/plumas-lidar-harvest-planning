@@ -81,6 +81,32 @@ For each Cable unit, and for Tractor units as a check:
    landings actually selected: up to four, chosen greedily for total coverage and stopped when the next landing
    adds less than 3 % of the unit.
    Difficulty combines coverage, mean available deflection, ground slope and the downhill-yarding share.
+6. Payload estimate (`04b_cable_figures.py`). For each feasible corridor the allowable load at mid-span is computed
+   for a 7/8 in extra-improved plow-steel skyline (6x19 IWRC, 1.42 lb per ft, breaking strength 79.6 kips) worked at
+   a safe working load of breaking strength divided by 3, 26.5 kips, the minimum safety factor the handbook
+   recommends for skyline design (Lysons and Mann 1967, *Skyline tension and deflection handbook*, USFS Research
+   Paper PNW-39, p. 3; rope table 1, p. 24; the same rope table is table 4-3, p. 25, of the Forest Service *Cable
+   Logging Systems* guide, which refers the load-carrying calculation to PNW-39 on p. 5). The arithmetic is the
+   PNW-39 single-span worksheet (p. 4; reproduced in the appendix of *Cable Logging Systems*): the upper-end
+   tension caused by the cable's own weight is subtracted from the safe working load, and the remainder is
+   divided by the upper-end tension per pound of load. Where the handbook reads those two tensions from catenary
+   tables, this script computes them by rigid-link statics: the skyline is two straight links from the supports
+   to the load at mid-span, each carrying half the cable weight (measured along the chord) at its midpoint. In
+   words, the horizontal tension is the span times (twice the load plus the cable weight) divided by eight times
+   the mid-span deflection; the vertical component at the upper support is that horizontal tension times (chord
+   slope plus twice the deflection ratio) plus a quarter of the cable weight; the upper-end tension is their
+   resultant. Solved for the load at the safe working load, this reproduces the handbook's table 2 (tension due
+   to cable weight, p. 32) and table 4 (tension due to a mid-span load, carriage clamped to the skyline, p. 36)
+   within 1 % for span slopes of 0 to 55 %. Limitations: the available deflection, chord to ground at mid-span,
+   is taken as the loaded deflection, the planning assumption; it is optimistic wherever the ground is close to
+   the chord, because the handbook's loaded deflection is the available deflection less the carriage, choker,
+   log and ground clearance. The result is the gross load at the carriage and no carriage weight is subtracted.
+   The links are straight, not catenaries; single span only, no intermediate supports; the clamped-carriage
+   (higher-tension) case is used throughout; and on short spans the figure is what the rope would hold, which
+   the yarder line pull and carriage would limit first. The estimate is reported as `payload_lb` on the route
+   tables, as an annotation on the profile sheets, in Fig 7, and as `max_payload_lb` and `payload_at_best_lb`
+   in `unit_summary.csv`; it is not stored in the GeoPackage. *Cable Logging Systems* (p. 87) puts the deflection
+   needed to carry a payload at 8 to 10 %, so corridors passed at 6 to 8 % carry the smallest loads.
 
 These are planning-level screens of the kind used to sort units by logging system before a field review,
 not an engineered skyline design. Two definitions follow the Forest Service *Cable Logging Systems* guide
@@ -131,8 +157,12 @@ medium vegetation and the usual operational definition of canopy.
 A simulated variable-radius cruise (BAF 20, 300 ft grid) is generated inside each unit from the canopy
 products, with a documented set of planted recording errors. The review sheet for each unit carries a stand
 summary, a stand table by 4-inch DBH class, a stock table by species, a plot map, the QA findings and the plot
-list, in the format used to hand a unit back to a crew. The workbook `cruise_data.xlsx` holds the plots, trees,
-unit summary, stand and stock tables and a sheet of standards and assumptions.
+list, in the format used to hand a unit back to a crew. The workbook `cruise_data.xlsx` opens on a READ ME sheet
+that states the data are simulated, then holds the plots, trees, unit summary, stand and stock tables and a sheet
+of standards and assumptions in which every constant names its value, source and URL. The simulated nature of the
+cruise is marked everywhere it could be mistaken for field data: every review-sheet page carries a light grey
+diagonal SIMULATED DATA watermark, the cruiser code is `SIM`, the plot date field reads `simulated`, and
+`qa_summary.csv` carries a `data` column with the value `simulated` on every row.
 
 Computations and the standards they follow:
 
@@ -142,14 +172,14 @@ Computations and the standards they follow:
 | Trees per acre | per-tree expansion BAF / tree BA, averaged over plots | variable-radius sampling |
 | Sampling error | t(0.975, n-1) x SE of plot BA / mean, in percent | FSH 2409.12 ch. 40 sec. 41.1: 95 % confidence, t = 2 for large n |
 | Stratum standard | 40 % per unit | FSH 2409.12 ch. 40 sec. 41.1(5)(b), tree-measurement sales |
-| Sale-as-a-whole | stratified estimate with area weights; standard from exhibit 01 by estimated sale value (10 % above $120,000) | FSH 2409.12 ch. 40 sec. 41.1 exhibit 01; value placed with an assumed $50/MBF |
+| Sale-as-a-whole | stratified estimate with area weights; standard from exhibit 01 by estimated sale value (10 % above $120,000) | FSH 2409.12 ch. 40 sec. 41.1 exhibit 01; value placed at $33.63/MBF, the Region 5 FY2025 average sold value: $9,223,272.19 over 274,275.08 MBF sold, all sales, region total row of the Forest Service Cut and Sold report CUTS203R, cumulative FY2025 Q1-Q4, run 2025-12-08 (https://www.fs.usda.gov/sites/default/files/2025-q4-cut-sold-r05.pdf). The report excludes Good Neighbor sale values and warns against using it for unit values, so the placement is a demonstration |
 | Plots for the standard | (t x CV / E)^2; the Region 5 practice minimum of 20 plots is reported separately | FSH 2409.12 ch. 30 |
 | SDI | summation form, sum of TPA x (DBH/10)^1.605 | Reineke 1933; Shaw 2000 |
-| SDI maximum | basal-area-weighted mean of species maxima: PP 365, WF 800, DF 570, SP 561, IC 576 | FVS Western Sierra variant overview, table 3.5.1 |
+| SDI maximum | basal-area-weighted mean of species maxima: PP 365, WF 800, DF 570, SP 561, IC 576 | FVS Staff 2008 (revised 2025-09-23), Western Sierra Nevada (WS) Variant Overview, Forest Vegetation Simulator, table 3.5.1 (https://www.fs.usda.gov/sites/default/files/forest-management/fvs-ws-overview.pdf); earlier revisions of the overview listed different maxima for some species |
 | Density zones and target | 35 % of maximum = lower limit of full occupancy, 60 % = onset of competition mortality; leave target 35 % expressed as BA | Long 1985; Long and Shaw 2012 |
-| Cubic volume | BA x total height x form factor 0.42, net of recorded defect | form-factor approximation (Avery and Burkhart); regional NVEL equations would replace it in practice |
-| Board feet | 5.5 Scribner bf per cu ft | Keegan et al. 2010: California mills among the highest ratios in the West |
-| Biomass | 60 lb per cu ft green | conifer green-density assumption |
+| Cubic volume | total-stem cubic volume (CVTS, top and stump included) by species: DF eq. 3, PP eq. 5, IC eq. 19, SP eq. 20, WF eq. 23 of the PNW-FIA tarif system (CF4, CV4, tarif, CVTS; trees under 6 in by the small-tree tarif), net of recorded defect; species codes without an equation fall back to BA x total height x form factor 0.42 | PNW-FIA volume equations for California (MacLean and Berger 1976, PNW Research Note PNW-266), as tabulated in "Volume estimation for the PNW-FIA Integrated Database", reproduced by the California Air Resources Board (2011): species table p. 5 (CA column), equations pp. 9, 11, 25, 26 and 29 (https://ww2.arb.ca.gov/sites/default/files/cap-and-trade/protocols/usforest/2011/volume_equations.pdf); fallback form factor after Avery and Burkhart, Forest Measurements (5th ed., 2002) |
+| Board feet | 5.02 Scribner bf per cu ft, applied to CVTS | Keegan, Morgan, Blatner and Daniels 2010, Trends in lumber processing in the western United States, Part I: Board foot Scribner volume per cubic foot of timber, Forest Prod. J. 60(2):133-139, table 2 (p. 135): California, 2000-2006, board feet Scribner per cubic foot of bole wood inside bark (the abstract rounds it to 5.03); treesearch 37833 (https://research.fs.usda.gov/treesearch/37833). Applied to total-stem cubic volume it overstates sawlog board feet somewhat |
+| Biomass | green weight of wood by species: PP 45, WF 47, DF 38, SP 49, IC 45 lb per cu ft; unknown codes 45 | Miles and Smith 2009, Specific gravity and other properties of wood and bark for 156 tree species found in North America, Research Note NRS-38, table 1A (pp. 8-9), average green weight of wood on a green-volume basis, bark excluded; Douglas-fir is a single entry there (FIA code 202, not split coast/interior); treesearch 34185 (https://research.fs.usda.gov/treesearch/34185) |
 | CWHR | size from QMD (3: 6 to 11 in, 4: 11 to 24, 5: over 24); density from cover (S 10 to 24 %, P 25 to 39, M 40 to 59, D 60 and over) | California Wildlife Habitat Relationships |
 
 Tables follow publication style: title above, horizontal rules only, footnotes and sources below, units in the

@@ -6,8 +6,9 @@ data/work/qc_planted.json. The QA pass flags plots that fail checks; the review 
 stand metrics, the flagged plots and a plot map, in the form a crew lead hands back to the field.
 
 Outputs data/work/cruise_plots.gpkg, output/review/Unit_<id>_Review.pdf, output/review/Unit_Reviews.pdf,
-        output/review/qa_summary.csv and output/review/cruise_data.xlsx (sheets Plots, Trees, Unit summary,
-        Stand tables, Stock tables, Standards and assumptions)
+        output/review/qa_summary.csv and output/review/cruise_data.xlsx (sheets READ ME, Plots, Trees, Unit summary,
+        Stand tables, Stock tables, Standards and assumptions). Every plot and tree is simulated: the review-sheet pages carry
+        a SIMULATED DATA watermark, the cruiser code is SIM, the date field reads "simulated" and qa_summary.csv has a data column.
 Run: python-qgis-ltr.bat scripts/06_review_sheets.py
 """
 import json
@@ -66,7 +67,7 @@ for u, g in units:
             dh = max(30.0, sample(dom, x, y)); cv = min(0.95, max(0.05, sample(cover, x, y)))
             ba_target = 60 + 180 * cv + rng.normal(0, 25)          # sq ft/ac, cover-driven
             ntrees = max(0, int(round(ba_target / BAF)))
-            plots.append(dict(plot=pid, unit_id=u["unit_id"], x=float(x), y=float(y), n_trees=ntrees, slope=round(sample(slope, x, y)), cruiser="WS", date="2026-09-10", dom_ht=round(dh), cover=cv * 100))
+            plots.append(dict(plot=pid, unit_id=u["unit_id"], x=float(x), y=float(y), n_trees=ntrees, slope=round(sample(slope, x, y)), cruiser="SIM", date="simulated", dom_ht=round(dh), cover=cv * 100))
             for t in range(ntrees):
                 sp_code = rng.choice(list(SPECIES), p=[v[1] for v in SPECIES.values()])
                 dbh = float(np.clip(rng.lognormal(math.log(0.28 * dh), 0.35), 5, 60))
@@ -114,25 +115,72 @@ found = set(flags)
 print(f"QA flagged {len(found)} plots; planted errors caught: {sum(1 for e in planted if e['plot'] in found)} of {len(planted)}")
 
 # ---- stand metrics per unit ----
-# Standards and sources (all cited in docs/methods.md):
+# Standards and sources (all cited in docs/methods.md and on the Standards and assumptions sheet):
 #   basal area per tree 0.005454 x DBH^2; BAF expansion; SDI in the summation form (Shaw 2000), maximum = basal-area-weighted
-#   average of the FVS Western Sierra variant species maxima (table 3.5.1), relative-density zones 35 % (full occupancy) and
-#   60 % (competition mortality) after Long (1985); cubic volume by form factor (Avery and Burkhart); Scribner board feet at
-#   BF_PER_CF (Keegan et al. 2010, California mills); sampling error at 95 % with Student's t on n-1 df, tested against the
-#   FSH 2409.12 ch. 40 sec. 41.1 standards: 40 % per stratum (tree-measurement sale) and exhibit 01 for the sale as a whole.
+#   average of the FVS Western Sierra variant species maxima (table 3.5.1, revision of 2025-09-23), relative-density zones 35 %
+#   (full occupancy) and 60 % (competition mortality) after Long (1985); total-stem cubic volume (CVTS) by the PNW-FIA species
+#   equations for California (MacLean and Berger 1976, PNW-266, as tabulated in the CARB "Volume Equations" compendium), with a
+#   form-factor fallback for unknown codes (Avery and Burkhart); Scribner board feet at BF_PER_CF (Keegan et al. 2010, table 2,
+#   California 2000-2006); green weight by species (Miles and Smith 2009, NRS-38 table 1A); sampling error at 95 % with
+#   Student's t on n-1 df, tested against the FSH 2409.12 ch. 40 sec. 41.1 standards: 40 % per stratum (tree-measurement sale)
+#   and exhibit 01 for the sale as a whole, placed with the Region 5 FY2025 average sold value per MBF (Cut and Sold report).
 from scipy import stats
-SDI_MAX_SP = {"PP": 365, "WF": 800, "DF": 570, "SP": 561, "IC": 576}     # FVS WS variant table 3.5.1 (2024 overview)
+SDI_MAX_SP = {"PP": 365, "WF": 800, "DF": 570, "SP": 561, "IC": 576}     # FVS WS variant overview table 3.5.1, revision of 2025-09-23
+SDI_SRC_URL = "https://www.fs.usda.gov/sites/default/files/forest-management/fvs-ws-overview.pdf"
 STRATUM_STD = 40.0                                                          # FSH 2409.12 41.1(5)(b), tree-measurement sales
 SALE_TIERS = [(10000, 25), (20000, 20), (45000, 18), (70000, 16), (95000, 14), (120000, 12), (float("inf"), 10)]   # 41.1 exhibit 01, tree measurement
-ASSUMED_STUMPAGE_PER_MBF = 50.0                                             # demonstration assumption to place the sale in exhibit 01
-BF_PER_CF = 5.5; FORM_FACTOR = 0.42; GREEN_LB_PER_CF = 60.0
+# Stumpage used to place the sale in exhibit 01: Region 5 total sold value / total sold volume, FY2025 Q1-Q4 Cut and Sold report
+# (CUTS203R, run 2025-12-08). The report notes that Good Neighbor sale values are excluded, so this is a demonstration placement.
+R5_FY2025_SOLD_VALUE, R5_FY2025_SOLD_MBF = 9223272.19, 274275.08
+STUMPAGE_PER_MBF = R5_FY2025_SOLD_VALUE / R5_FY2025_SOLD_MBF                # $33.63/MBF
+STUMPAGE_SRC_URL = "https://www.fs.usda.gov/sites/default/files/2025-q4-cut-sold-r05.pdf"
+BF_PER_CF = 5.02                # Keegan et al. 2010, Forest Prod. J. 60(2):133-139, table 2 (p. 135): California, 2000-2006, Scribner bf per cu ft of bole wood
+BF_SRC_URL = "https://research.fs.usda.gov/treesearch/37833"
+FORM_FACTOR = 0.42              # fallback only, for species codes without a CVTS equation (conifer form factors after Avery and Burkhart, Forest Measurements)
+GREEN_LB_PER_CF = {"PP": 45.0, "WF": 47.0, "DF": 38.0, "SP": 49.0, "IC": 45.0}   # Miles and Smith 2009, NRS-38 table 1A (pp. 8-9): green weight of wood, lb/cf
+GREEN_LB_DEFAULT = 45.0         # fallback for unknown species codes: rounded mean of the five species above
+GREEN_SRC_URL = "https://research.fs.usda.gov/treesearch/34185"
+CVTS_SRC_URL = "https://ww2.arb.ca.gov/sites/default/files/cap-and-trade/protocols/usforest/2011/volume_equations.pdf"
 DBH_CLASS = 4                                                               # stand table class width, in
 PRACTICE_MIN_PLOTS = MIN_PLOTS                                              # Region 5 practice, reported but not part of the WO standard
 
 
+def cvts(sp, dbh, ht):
+    """Total-stem cubic volume (CVTS, cu ft, including top and stump) by the PNW-FIA equations for California species:
+    DF eq. 3, PP eq. 5, IC eq. 19, SP eq. 20, WF eq. 23 (MacLean and Berger 1976, PNW-266), as tabulated in the CARB
+    "Volume Equations" compendium: species table p. 5 (CA column), equation pages 9, 11, 25, 26 and 29 (CVTS_SRC_URL).
+    Trees under 6 in DBH use TMP_DBH = 6 and the small-tree tarif. Returns None for species codes without an equation."""
+    td = max(dbh, 6.0); ba = 0.005454154 * td ** 2
+    if sp == "DF":
+        cf4 = min(0.4, max(0.3, 0.248569 + 0.0253524 * ht / td - 0.0000560175 * ht ** 2 / td))
+    elif sp == "PP":
+        cf4 = min(0.4, max(0.3, 0.402060 - 0.899914 / td))
+    elif sp == "SP":
+        cf4 = min(0.4, max(0.3, 0.358550 - 0.488134 / td))
+    elif sp == "WF":
+        cf4 = min(0.4, max(0.3, 0.299039 + 1.91272 / ht + 0.0000367217 * ht ** 2 / td))
+    elif sp == "IC":
+        cf4 = max(0.27, 0.225786 + 4.44236 / ht)
+    else:
+        return None
+    cv4 = 0.005454154 * td ** 2 * ht * cf4                              # cu ft above stump to a 4 in top
+    tarif = cv4 * 0.912733 / (ba - 0.087266)
+    top = 1.033 * (1.0 + 1.382937 * math.exp(-4.015292 * dbh / 10.0)) * (ba + 0.087266) - 0.174533
+    if dbh > 6.0:
+        return cv4 * top / (ba - 0.087266)
+    small = max(0.01, 0.5 * (6.0 - dbh) ** 2 + (1.0 + 0.063 * (6.0 - dbh) ** 2) * tarif)
+    return small * top
+
+
 def tree_vol(t, ef):
+    """Net cubic feet per acre for one tally tree: CVTS by species, form-factor approximation for unknown codes."""
     h = t["height"] or 0
-    return ef * 0.005454 * t["dbh"] ** 2 * h * FORM_FACTOR * (1 - t["defect"] / 100)
+    if h <= 0:
+        return 0.0
+    v = cvts(t["species"], t["dbh"], h)
+    if v is None:
+        v = 0.005454 * t["dbh"] ** 2 * h * FORM_FACTOR
+    return ef * v * (1 - t["defect"] / 100)
 
 
 def metrics(uid):
@@ -142,12 +190,12 @@ def metrics(uid):
     ba_plot = [p["n_trees"] * BAF for p in ps]
     tl = [t for t in trees if t["unit_id"] == uid and 1 <= t["dbh"] <= 80]
     tpa = vol = sumd2 = sdi = 0.0; sp_ba = {}; sp_stat = {}; cls_stat = {}
-    saw = dict(n=0, ba=0.0, tpa=0.0, d2=0.0, vol=0.0); bio = dict(n=0, ba=0.0, tpa=0.0, d2=0.0, vol=0.0)
+    saw = dict(n=0, ba=0.0, tpa=0.0, d2=0.0, vol=0.0, lb=0.0); bio = dict(n=0, ba=0.0, tpa=0.0, d2=0.0, vol=0.0, lb=0.0)
     for t in tl:
         ef = BAF / (0.005454 * t["dbh"] ** 2) / n; v = tree_vol(t, ef)
         tpa += ef; sumd2 += ef * t["dbh"] ** 2; vol += v; sdi += ef * (t["dbh"] / 10.0) ** 1.605
         sp_ba[t["species"]] = sp_ba.get(t["species"], 0) + BAF / n
-        g = saw if t["dbh"] >= 10 else bio; g["n"] += 1; g["ba"] += BAF / n; g["tpa"] += ef; g["d2"] += ef * t["dbh"] ** 2; g["vol"] += v
+        g = saw if t["dbh"] >= 10 else bio; g["n"] += 1; g["ba"] += BAF / n; g["tpa"] += ef; g["d2"] += ef * t["dbh"] ** 2; g["vol"] += v; g["lb"] += v * GREEN_LB_PER_CF.get(t["species"], GREEN_LB_DEFAULT)
         s = sp_stat.setdefault(t["species"], dict(n=0, tpa=0.0, ba=0.0, d2=0.0, vol=0.0)); s["n"] += 1; s["tpa"] += ef; s["ba"] += BAF / n; s["d2"] += ef * t["dbh"] ** 2; s["vol"] += v
         k = int(t["dbh"] // DBH_CLASS) * DBH_CLASS
         c = cls_stat.setdefault(k, dict(n=0, tpa=0.0, ba=0.0, vol=0.0)); c["n"] += 1; c["tpa"] += ef; c["ba"] += BAF / n; c["vol"] += v
@@ -177,9 +225,9 @@ M = {u["unit_id"]: metrics(u["unit_id"]) for u, g in units}
 tot_ac = sum(u["acres"] for u, g in units); sale_ba = sum(u["acres"] / tot_ac * M[u["unit_id"]]["ba"] for u, g in units if M[u["unit_id"]])
 sale_var = sum((u["acres"] / tot_ac) ** 2 * M[u["unit_id"]]["sd"] ** 2 / M[u["unit_id"]]["plots"] for u, g in units if M[u["unit_id"]])
 sale_se95 = 2 * math.sqrt(sale_var) / sale_ba * 100
-sale_mbf = sum(u["acres"] * M[u["unit_id"]]["mbf"] for u, g in units if M[u["unit_id"]]); sale_value = sale_mbf * ASSUMED_STUMPAGE_PER_MBF
+sale_mbf = sum(u["acres"] * M[u["unit_id"]]["mbf"] for u, g in units if M[u["unit_id"]]); sale_value = sale_mbf * STUMPAGE_PER_MBF
 sale_std = next(pct for lim, pct in SALE_TIERS if sale_value < lim)
-print(f"sale as a whole: BA {sale_ba:.0f} sq ft/ac, SE {sale_se95:.1f} % at 95 %, standard {sale_std} % for an assumed value of ${sale_value:,.0f}")
+print(f"sale as a whole: BA {sale_ba:.0f} sq ft/ac, SE {sale_se95:.1f} % at 95 %, standard {sale_std} % for a value of ${sale_value:,.0f} ({sale_mbf:,.0f} MBF at the Region 5 FY2025 sold average of ${STUMPAGE_PER_MBF:.2f}/MBF)")
 
 # ---- outputs: gpkg, xlsx ----
 drv = ogr.GetDriverByName("GPKG"); gp = os.path.join(WORK, "cruise_plots.gpkg")
@@ -202,13 +250,13 @@ ws2 = wb.create_sheet("Trees"); ws2.append(["plot", "unit_id", "tree", "species"
 for t in trees:
     ws2.append([t["plot"], t["unit_id"], t["tree"], t["species"], t["dbh"], t["height"], t["status"], t["defect"], round(0.005454 * t["dbh"] ** 2, 3) if 1 <= t["dbh"] <= 80 else None, round(BAF / (0.005454 * t["dbh"] ** 2), 2) if 1 <= t["dbh"] <= 80 else None])
 ws3 = wb.create_sheet("Unit summary")
-ws3.append(["unit_id", "method", "acres", "plots", "BA sq ft/ac", "SD of plot BA", "CV %", "t (95 %, n-1)", "SE % at 95 %", "stratum standard %", "meets standard", "plots for standard", "20-plot practice", "TPA", "QMD in", "cu ft/ac", "MBF/ac Scribner", "SDI", "SDI max (BA-wtd FVS WS)", "SDI % of max", "CWHR size", "CWHR density", "Sawtimber BA", "Biomass BA", "QA flags"])
+ws3.append(["unit_id", "method", "acres", "plots", "BA sq ft/ac", "SD of plot BA", "CV %", "t (95 %, n-1)", "SE % at 95 %", "stratum standard %", "meets standard", "plots for standard", "20-plot practice", "TPA", "QMD in", "cu ft/ac", "MBF/ac Scribner", "SDI", "SDI max (BA-wtd FVS WS)", "SDI % of max", "CWHR size", "CWHR density", "Sawtimber BA", "Biomass BA", "Biomass green tons/ac", "QA flags"])
 for u, g in units:
     m = M[u["unit_id"]]
     if m:
         nf = len({(p["plot"], f) for p in plots if p["unit_id"] == u["unit_id"] for f in flags.get(p["plot"], [])})
         ws3.append([u["unit_id"], u["method"], round(u["acres"], 1), m["plots"], round(m["ba"], 1), round(m["sd"], 1), round(m["cv"], 1), round(m["tval"], 3), round(m["se95"], 1), m["se_std"], "yes" if m["meets"] else "no", m["n_for_std"], "yes" if m["practice_ok"] else "no",
-                    round(m["tpa"]), round(m["qmd"], 1), round(m["cuft"]), round(m["mbf"], 1), round(m["sdi"]), round(m["sdimax"]), round(m["sdi_pct"]), m["size_cls"], m["dens_cls"], round(m["saw"]["ba"]), round(m["bio"]["ba"]), nf])
+                    round(m["tpa"]), round(m["qmd"], 1), round(m["cuft"]), round(m["mbf"], 1), round(m["sdi"]), round(m["sdimax"]), round(m["sdi_pct"]), m["size_cls"], m["dens_cls"], round(m["saw"]["ba"]), round(m["bio"]["ba"]), round(m["bio"]["lb"] / 2000, 1), nf])
 ws4 = wb.create_sheet("Stand tables"); ws4.append(["unit_id", "DBH class (in)", "trees tallied", "TPA", "BA sq ft/ac", "cu ft/ac", "MBF/ac"])
 for u, g in units:
     m = M[u["unit_id"]]
@@ -224,27 +272,43 @@ for u, g in units:
     for k, s in sorted(m["sp_stat"].items(), key=lambda x: -x[1]["ba"]):
         ws5.append([u["unit_id"], k, s["n"], round(s["tpa"], 1), round(s["ba"], 1), round(s["qmd"], 1), round(s["vol"]), round(s["vol"] / 1000 * BF_PER_CF, 2)])
 ws6 = wb.create_sheet("Standards and assumptions")
-for row in (["item", "value", "source"],
-            ["Basal area factor", BAF, "variable-radius (prism) cruise; BA/ac = trees in x BAF"],
-            ["Tree basal area", "0.005454 x DBH^2 sq ft", "standard mensuration"],
-            ["Expansion factor", "BAF / tree BA, divided by plots", "per-tree trees per acre"],
-            ["Sampling error", "t(0.975, n-1) x SE / mean, percent (sale as a whole uses t = 2, the handbook's large-sample value)", "FSH 2409.12 ch. 40, 41.1: 95 % confidence (t = 2 for large n)"],
-            ["Stratum standard", f"{STRATUM_STD:.0f} %", "FSH 2409.12 ch. 40, 41.1(5)(b): tree-measurement sales"],
-            ["Sale-as-a-whole standard", f"{sale_std} % at an assumed value of ${sale_value:,.0f}", "FSH 2409.12 ch. 40, 41.1 exhibit 01 (tree measurement column)"],
-            ["Sale-as-a-whole estimate", "stratified by unit, area weights; var = sum(W^2 s^2 / n)", "Cochran; FSH 2409.12 ch. 30"],
-            ["Practice minimum plots", PRACTICE_MIN_PLOTS, "Region 5 practice on these projects; reported, not part of the WO standard"],
-            ["Plots for standard", "(t x CV / E)^2", "FSH 2409.12 ch. 30 sample size"],
-            ["SDI", "sum over trees of TPA x (DBH/10)^1.605", "Reineke 1933; summation form Shaw 2000"],
-            ["SDI maximum", "BA-weighted mean of species maxima: " + ", ".join(f"{k} {v}" for k, v in SDI_MAX_SP.items()), "FVS Western Sierra variant overview, table 3.5.1"],
-            ["Relative density zones", "35 % of max = lower limit of full site occupancy; 60 % = onset of competition mortality", "Long 1985; Long and Shaw 2012 (Sierra mixed conifer DMD)"],
-            ["Leave target", f"{TARGET_SDI_PCT} % of max SDI, expressed as BA", "demonstration target at the full-occupancy threshold"],
-            ["Cubic volume", f"BA x total height x form factor {FORM_FACTOR}, net of defect", "form-factor approximation (Avery and Burkhart); regional NVEL equations would replace it in practice"],
-            ["Board feet", f"{BF_PER_CF} Scribner bf per cu ft", "Keegan et al. 2010: California mills among the highest BF/CF ratios in the West (about 5.5 to 5.7)"],
-            ["Biomass green tons", f"{GREEN_LB_PER_CF:.0f} lb per cu ft green", "conifer green density assumption"],
-            ["CWHR size class", "QMD: 1 <1 in, 2 1-6, 3 6-11, 4 11-24, 5 >24", "California Wildlife Habitat Relationships"],
-            ["CWHR density class", "canopy cover: S 10-24 %, P 25-39, M 40-59, D 60-100", "California Wildlife Habitat Relationships"],
-            ["Data", "simulated cruise with six planted recording errors", "docs/methods.md"]):
+FSH_URL = "https://www.fs.usda.gov/im/directives/dughtml/fsh.html"   # Forest Service Handbook directives index (FSH 2409.12 ch. 40, WO amendment 2012-1)
+for row in (["item", "value", "source", "url"],
+            ["Basal area factor", BAF, "variable-radius (prism) cruise; BA/ac = trees in x BAF (Univ. of Tennessee Extension W1117, common forest measurements)", "https://utia.tennessee.edu/publications/wp-content/uploads/sites/269/2023/10/W1117.pdf"],
+            ["Tree basal area", "0.005454 x DBH^2 sq ft", "standard mensuration (Univ. of Tennessee Extension W1117)", "https://utia.tennessee.edu/publications/wp-content/uploads/sites/269/2023/10/W1117.pdf"],
+            ["Expansion factor", "BAF / tree BA, divided by plots", "per-tree trees per acre in a variable-radius cruise (Univ. of Tennessee Extension W1117)", "https://utia.tennessee.edu/publications/wp-content/uploads/sites/269/2023/10/W1117.pdf"],
+            ["Sampling error", "t(0.975, n-1) x SE / mean, percent (sale as a whole uses t = 2, the handbook's large-sample value)", "FSH 2409.12 ch. 40, 41.1: 95 % confidence (t = 2 for large n)", FSH_URL],
+            ["Stratum standard", f"{STRATUM_STD:.0f} %", "FSH 2409.12 ch. 40, 41.1(5)(b): tree-measurement sales", FSH_URL],
+            ["Sale-as-a-whole standard", f"{sale_std} % at a value of ${sale_value:,.0f} ({sale_mbf:,.0f} MBF x ${STUMPAGE_PER_MBF:.2f}/MBF)", "FSH 2409.12 ch. 40, 41.1 exhibit 01 (tree measurement column)", FSH_URL],
+            ["Stumpage for exhibit 01", f"${STUMPAGE_PER_MBF:.2f} per MBF = Region 5 sold value ${R5_FY2025_SOLD_VALUE:,.2f} / sold volume {R5_FY2025_SOLD_MBF:,.2f} MBF, all sales", "Forest Service Cut and Sold report CUTS203R, Region 5, cumulative FY2025 Q1-Q4 (run 2025-12-08), region total row; the report excludes Good Neighbor sale values and says not to use it for unit values, so this is a demonstration placement", STUMPAGE_SRC_URL],
+            ["Sale-as-a-whole estimate", "stratified by unit, area weights; var = sum(W^2 s^2 / n)", "Cochran; FSH 2409.12 ch. 30", FSH_URL],
+            ["Practice minimum plots", PRACTICE_MIN_PLOTS, "Region 5 practice on these projects; reported, not part of the WO standard", "n/a: Region 5 practice on the projects this demonstrates; not a published standard"],
+            ["Plots for standard", "(t x CV / E)^2", "FSH 2409.12 ch. 30 sample size", FSH_URL],
+            ["SDI", "sum over trees of TPA x (DBH/10)^1.605", "Reineke 1933; summation form after Shaw 2000, reviewed in Shaw 2006", "https://www.fs.usda.gov/rm/pubs_other/rmrs_2006_shaw_j006.pdf"],
+            ["SDI maximum", "BA-weighted mean of species maxima: " + ", ".join(f"{k} {v}" for k, v in SDI_MAX_SP.items()), "FVS Staff 2008 (revised 2025-09-23), Western Sierra Nevada (WS) Variant Overview, Forest Vegetation Simulator, table 3.5.1 (sources Shaw and PSW); earlier revisions of the overview listed different maxima for some species", SDI_SRC_URL],
+            ["Relative density zones", "35 % of max = lower limit of full site occupancy; 60 % = onset of competition mortality", "Long 1985; Long and Shaw 2012 (Sierra mixed conifer DMD)", "https://research.fs.usda.gov/treesearch/25003"],
+            ["Leave target", f"{TARGET_SDI_PCT} % of max SDI, expressed as BA", "demonstration target at the full-occupancy threshold", "https://research.fs.usda.gov/treesearch/25003"],
+            ["Cubic volume", "total-stem cubic volume (CVTS) by species: DF eq. 3, PP eq. 5, IC eq. 19, SP eq. 20, WF eq. 23 (tarif system, small-tree tarif under 6 in), net of recorded defect", "PNW-FIA volume equations for California (MacLean and Berger 1976, PNW Research Note PNW-266) as tabulated in 'Volume estimation for the PNW-FIA Integrated Database', reproduced by the California Air Resources Board (2011): species table p. 5 (CA column), equations pp. 9, 11, 25, 26, 29", CVTS_SRC_URL],
+            ["Cubic volume fallback", f"BA x total height x form factor {FORM_FACTOR} for species codes without an equation (e.g. the planted bad code)", "conifer form-factor approximation after Avery and Burkhart, Forest Measurements (5th ed., McGraw-Hill 2002), tree form and volume chapters", "n/a: Avery and Burkhart, Forest Measurements (textbook)"],
+            ["Board feet", f"{BF_PER_CF} Scribner bf per cu ft, applied to CVTS", "Keegan, Morgan, Blatner and Daniels 2010, Trends in lumber processing in the western United States, Part I, Forest Prod. J. 60(2):133-139, table 2 (p. 135): California, 2000-2006, board feet Scribner per cubic foot of bole wood inside bark (the abstract rounds it to 5.03); applied here to total-stem cubic volume, which overstates sawlog board feet somewhat", BF_SRC_URL],
+            ["Biomass green tons", "green weight of wood by species: " + ", ".join(f"{k} {v:.0f}" for k, v in GREEN_LB_PER_CF.items()) + f" lb per cu ft; unknown codes {GREEN_LB_DEFAULT:.0f}", "Miles and Smith 2009, Specific gravity and other properties of wood and bark for 156 tree species found in North America, Research Note NRS-38, table 1A (pp. 8-9), 'Avg. green wt. (lb/cf)' of wood on a green-volume basis; Douglas-fir is a single entry there (FIA code 202, not split coast/interior); bark excluded", GREEN_SRC_URL],
+            ["CWHR size class", "QMD: 1 <1 in, 2 1-6, 3 6-11, 4 11-24, 5 >24", "California Wildlife Habitat Relationships", "https://wildlife.ca.gov/Data/CWHR"],
+            ["CWHR density class", "canopy cover: S 10-24 %, P 25-39, M 40-59, D 60-100", "California Wildlife Habitat Relationships", "https://wildlife.ca.gov/Data/CWHR"],
+            ["Data", "SIMULATED: every plot and tree is generated from LiDAR canopy metrics with six planted recording errors; cruiser code SIM, date field 'simulated', SIMULATED DATA watermark on every review-sheet page", "docs/methods.md", "https://github.com/woodsy-will/plumas-lidar-harvest-planning/blob/main/docs/methods.md"]):
     ws6.append(row)
+ws0 = wb.create_sheet("READ ME", 0)
+ws0.append(["SIMULATED DATA. Every plot and tree in this workbook is simulated from LiDAR canopy metrics (dominant height and canopy cover) with six planted recording errors. "
+            "It is not field data: no crew measured these trees. The cruiser code SIM and the date field 'simulated' mark every record, and the review-sheet PDFs carry a SIMULATED DATA watermark."])
+ws0.append([]); ws0.append(["Sheet", "Contents"])
+for nm, what in (("Plots", "one row per simulated plot: location, trees in, BA, slope, cruiser SIM, date 'simulated', QA flags"),
+                 ("Trees", "one row per simulated tally tree: species, DBH, height, defect, tree BA, expansion factor"),
+                 ("Unit summary", "per-unit cruise statistics, standards check, SDI, CWHR, sawtimber and biomass"),
+                 ("Stand tables", "TPA, BA and volume by 4-inch DBH class per unit"),
+                 ("Stock tables", "TPA, BA, QMD and volume by species per unit"),
+                 ("Standards and assumptions", "every constant with its value, source and URL")):
+    ws0.append([nm, what])
+ws0["A1"].font = Font(bold=True); ws0["A1"].alignment = Alignment(wrap_text=True, vertical="top"); ws0.merge_cells("A1:B1"); ws0.row_dimensions[1].height = 75
+ws0["A3"].font = Font(bold=True); ws0["B3"].font = Font(bold=True); ws0.column_dimensions["A"].width = 28; ws0.column_dimensions["B"].width = 100
 for w in (ws, ws2, ws3, ws4, ws5, ws6):
     for c in w[1]:
         c.font = Font(bold=True); c.fill = PatternFill("solid", fgColor="DDE8D0"); c.alignment = Alignment(wrap_text=True, vertical="top")
@@ -286,6 +350,12 @@ merged = SimpleDocTemplate(os.path.join(OUT, "Unit_Reviews.pdf"), pagesize=lette
 story = []
 
 
+def watermark(canv, doc):
+    """Light grey diagonal SIMULATED DATA on every page; the onPage callback runs before the page content is drawn."""
+    w, h = doc.pagesize; canv.saveState(); canv.setFont(FONT_B, 64); canv.setFillColor(colors.HexColor("#d9d9d9"))
+    canv.translate(w / 2, h / 2); canv.rotate(40); canv.drawCentredString(0, 0, "SIMULATED DATA"); canv.restoreState()
+
+
 def build_page(u, g):
     uid = u["unit_id"]; m = M[uid]
     if not m:
@@ -311,15 +381,16 @@ def build_page(u, g):
           ["SAWTIMBER  (>= 10 in)", "", "BIOMASS  (< 10 in)", ""],
           ["BA | QMD", f"{m['saw']['ba']:.0f} sq ft/ac | {m['saw']['qmd']:.1f} in", "BA | QMD", f"{m['bio']['ba']:.0f} sq ft/ac | {m['bio']['qmd']:.1f} in"],
           ["TPA", f"{m['saw']['tpa']:.0f}", "TPA", f"{m['bio']['tpa']:.0f}"],
-          ["Volume", f"{m['saw']['vol'] / 1000 * BF_PER_CF:.1f} MBF/ac  ({m['saw']['vol']:.0f} cu ft)", "Volume", f"{m['bio']['vol'] * GREEN_LB_PER_CF / 2000:.1f} green tons/ac  ({m['bio']['vol']:.0f} cu ft)"],
+          ["Volume", f"{m['saw']['vol'] / 1000 * BF_PER_CF:.1f} MBF/ac  ({m['saw']['vol']:.0f} cu ft)", "Volume", f"{m['bio']['lb'] / 2000:.1f} green tons/ac  ({m['bio']['vol']:.0f} cu ft)"],
           ["TREATMENT TARGET", "", "CRUISE DESIGN", ""],
           ["Leave", f"{TARGET_SDI_PCT} % of max SDI  =  ~{m['target_ba']:.0f} sq ft/ac BA", "Sampling error", f"{m['se95']:.1f} % at 95 %  (t = {m['tval']:.2f}, n = {m['plots']})"],
           ["Species (BA)", ", ".join(f"{s} {b:.0f}" for s, b in m["species"][:5]), "Stratum standard", f"{m['se_std']:.0f} %  -  {'MEETS' if m['meets'] else 'FAILS'};  {m['plots']} plots vs 20-plot practice: {'ok' if m['practice_ok'] else 'SHORT by ' + str(PRACTICE_MIN_PLOTS - m['plots'])}"]]
     t1 = Table(st, colWidths=[1.1 * inch, 1.95 * inch, 1.25 * inch, 2.9 * inch])
     t1.setStyle(tstyle(head_rows=(0, 4, 8), extra=[("BACKGROUND", (0, r0), (0, r1), PALE) for r0, r1 in ((1, 3), (5, 7), (9, 10))] + [("BACKGROUND", (2, r0), (2, r1), PALE) for r0, r1 in ((1, 3), (5, 7), (9, 10))]))
     page += [Paragraph("Table 1. Stand summary from the BAF 20 cruise, per acre", TT), t1,
-             Paragraph(f"Cubic volume by form factor {FORM_FACTOR} net of defect; Scribner board feet at {BF_PER_CF} bf/cu ft (Keegan et al. 2010); green tons at {GREEN_LB_PER_CF:.0f} lb/cu ft. SDI in the summation form; maximum is the basal-area-weighted FVS Western Sierra species maximum. "
-                       f"Sampling error at 95 % confidence with Student's t; stratum standard {STRATUM_STD:.0f} % for tree-measurement sales (FSH 2409.12 ch. 40, 41.1).", FN)]
+             Paragraph(f"Cubic volume = total-stem CVTS by species (PNW-FIA California equations, MacLean and Berger 1976, CARB 2011 compendium) net of defect; Scribner board feet at {BF_PER_CF} bf/cu ft (Keegan et al. 2010, table 2, California 2000-2006); "
+                       f"green tons at " + ", ".join(f"{k} {v:.0f}" for k, v in GREEN_LB_PER_CF.items()) + " lb/cu ft of wood (Miles and Smith 2009, NRS-38 table 1A). SDI in the summation form; maximum is the basal-area-weighted FVS Western Sierra species maximum (table 3.5.1, rev. 2025-09-23). "
+                       f"Sampling error at 95 % confidence with Student's t; stratum standard {STRATUM_STD:.0f} % for tree-measurement sales (FSH 2409.12 ch. 40, 41.1). Sources and URLs: cruise_data.xlsx, Standards and assumptions.", FN)]
     # Table 2: stand table by DBH class; Table 3: stock table by species, side by side
     rows2 = [["DBH class, in", "Trees", "TPA", "BA", "cu ft", "MBF"]] + [[f"{k}-{k + DBH_CLASS - 1:.0f}.9", c["n"], f"{c['tpa']:.1f}", f"{c['ba']:.1f}", f"{c['vol']:.0f}", f"{c['vol'] / 1000 * BF_PER_CF:.1f}"] for k, c in sorted(m["cls_stat"].items())]
     rows2.append(["All", sum(c["n"] for c in m["cls_stat"].values()), f"{m['tpa']:.1f}", f"{m['ba']:.1f}", f"{m['cuft']:.0f}", f"{m['mbf']:.1f}"])
@@ -345,7 +416,7 @@ for u, g in units:
     page = build_page(u, g)
     if page is None:
         continue
-    SimpleDocTemplate(os.path.join(OUT, f"Unit_{u['unit_id']}_Review.pdf"), pagesize=letter, leftMargin=0.6 * inch, rightMargin=0.6 * inch, topMargin=0.6 * inch, bottomMargin=0.6 * inch, title=f"Unit {u['unit_id']} field data review", author="William Steinley").build(page)
+    SimpleDocTemplate(os.path.join(OUT, f"Unit_{u['unit_id']}_Review.pdf"), pagesize=letter, leftMargin=0.6 * inch, rightMargin=0.6 * inch, topMargin=0.6 * inch, bottomMargin=0.6 * inch, title=f"Unit {u['unit_id']} field data review", author="William Steinley").build(page, onFirstPage=watermark, onLaterPages=watermark)
     story += build_page(u, g) + [PageBreak()]      # fresh flowables: a built table cannot be reused
 
 qa_rows = [["Unit", "Method", "Acres", "Plots", "BA", "CV %", "t", "SE % (95 %)", "Std %", "Design", "20-plot", "QA flags", "Status"]]
@@ -359,11 +430,12 @@ qt = Table(qa_rows, repeatRows=1); qt.setStyle(tstyle(extra=[("ALIGN", (2, 0), (
 front = [Paragraph("Field Data Review - Sale-level QA summary", H),
          Paragraph(f"Mohawk Valley West Slope demonstration. {len(plots)} plots, {len(trees)} trees, BAF {BAF:.0f} on a {GRID:.0f} ft grid across {len(units)} units ({tot_ac:,.0f} ac). "
                    f"<b>Sale as a whole</b> (stratified by unit, area weights): basal area {sale_ba:.0f} sq ft/ac, sampling error {sale_se95:.1f} % at 95 % confidence against the exhibit 01 standard of {sale_std} % "
-                   f"for a tree-measurement sale valued at about ${sale_value:,.0f} ({sale_mbf / 1000:,.0f} MBF at an assumed ${ASSUMED_STUMPAGE_PER_MBF:.0f}/MBF): <b>{'MEETS' if sale_se95 <= sale_std else 'FAILS'}</b>. "
+                   f"for a tree-measurement sale valued at about ${sale_value:,.0f} ({sale_mbf:,.0f} MBF at ${STUMPAGE_PER_MBF:.2f}/MBF, the Region 5 FY2025 average sold value from the Forest Service Cut and Sold report): <b>{'MEETS' if sale_se95 <= sale_std else 'FAILS'}</b>. "
                    f"<b>Strata</b>: each unit is tested against the {STRATUM_STD:.0f} % stratum standard for tree-measurement sales (FSH 2409.12 ch. 40, sec. 41.1); the 20-plot column reports the Region 5 practice minimum. "
                    f"QA flags are plots that failed a record check; {len(found)} flagged, {sum(1 for e in planted if e['plot'] in found)} of {len(planted)} planted errors caught.", B), Spacer(1, 8),
          Paragraph("Table A. Cruise statistics and QA status by unit (stratum)", TT), qt,
          Paragraph("BA in sq ft/ac; CV = coefficient of variation of plot basal area; t = Student's t at 95 % on n-1 df; SE % = t x standard error / mean.", FN), PageBreak()]
-merged.build(front + story)
-open(os.path.join(OUT, "qa_summary.csv"), "w", newline="").write("\n".join(",".join(str(c) for c in r) for r in qa_rows) + "\n")
+merged.build(front + story, onFirstPage=watermark, onLaterPages=watermark)
+csv_rows = [qa_rows[0] + ["data"]] + [r + ["simulated"] for r in qa_rows[1:]]      # data column marks every row as simulated
+open(os.path.join(OUT, "qa_summary.csv"), "w", newline="").write("\n".join(",".join(str(c) for c in r) for r in csv_rows) + "\n")
 print("review sheets written for", len(units), "units")

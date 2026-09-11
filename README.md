@@ -73,9 +73,11 @@ The same screen runs on the tractor units as a check; their results are reported
 would happen if cable were required. Each unit also gets a profile sheet (best corridor from each selected
 landing, with chord, mid-span deflection and minimum clearance drawn), and, where any corridor is feasible, a route table of distinct settings
 with chord slope and yarding direction, and external and average yarding distances as the Forest Service
-*Cable Logging Systems* guide defines them. Sale-level figures cover slope by unit, deflection across all
-corridors, equipment class, difficulty, an equipment-selection matrix of span against chord slope, and
-yarding direction by unit.
+*Cable Logging Systems* guide defines them. Each feasible corridor also carries an allowable mid-span load on a
+7/8 in skyline at a safety factor of 3, computed by the rigid-link statics of the Forest Service *Skyline
+Tension and Deflection Handbook* and checked against its tables. Sale-level figures cover slope by unit,
+deflection across all corridors, equipment class, difficulty, an equipment-selection matrix of span against
+chord slope, yarding direction by unit, and payload against span.
 
 ### Field-data review
 
@@ -85,9 +87,10 @@ area with sampling error, trees per acre, QMD, stand density index against the m
 CWHR size and density class, a sawtimber versus biomass split, a leave target at 35 % of the basal-area-weighted
 FVS maximum SDI, a stand table by DBH class, a stock table by species, and a cruise design check with Student's t
 against the FSH 2409.12 standards (40 % per stratum, exhibit 01 for the sale as a whole), a plot map, and the
-findings a crew lead would hand back. A sale-level QA page opens the merged review PDF; every unit meets the
-stratum standard, the sale as a whole meets its 10 % standard, and four units fall short of the Region 5
-20-plot practice minimum.
+findings a crew lead would hand back. Every page carries a SIMULATED DATA watermark, the cruiser code is SIM,
+and the workbook opens with a READ ME sheet saying the same. A sale-level QA page opens the merged review PDF;
+every unit meets the stratum standard, the sale as a whole meets its 10 % standard (placed with the Region 5
+FY2025 sold average of $33.63/MBF), and four units fall short of the Region 5 20-plot practice minimum.
 
 ### Standards followed
 
@@ -114,7 +117,7 @@ kept in git. JPEG previews of everything are in `output/previews`.
 | Folder | Contents |
 |---|---|
 | `output/maps` | per-sheet print PDF (vector text, 300 dpi) and 150 dpi PNG; `geopdf/` field copies for Avenza; `Unit_Map_Series.pdf` merged (release asset, not in git) |
-| `output/cable` | `unit_summary.csv`, per-unit profile sheets, route tables and corridor maps, six sale-level figures |
+| `output/cable` | `unit_summary.csv`, per-unit profile sheets, route tables and corridor maps, seven sale-level figures |
 | `output/review` | per-unit review PDFs, `Unit_Reviews.pdf` with the sale-level QA page, `cruise_data.xlsx`, `qa_summary.csv` |
 | `output/gis` | `mohawk_west_slope.gpkg` (all vector products, described and with project metadata) and four decision rasters |
 | `output/quicklooks` | terrain and canopy products with legends, scale bar and unit outlines |
@@ -125,7 +128,7 @@ kept in git. JPEG previews of everything are in `output/previews`.
 
 | Script | Output |
 |---|---|
-| `01_get_data.py` | public vectors to `data/raw` (Census TIGER county roads downloaded separately and saved as `tiger_roads.geojson`); `ept_fetch.py` pulls the LiDAR nodes |
+| `01_get_data.py` | public vectors to `data/raw`, including Census TIGER county roads clipped to the area; skips any file already present; `ept_fetch.py` pulls the LiDAR nodes |
 | `02_build_terrain.py` | DTM, DSM, CHM, slope, planning slope, aspect, hillshade, cover, dominant height, yarding class |
 | `02b_quicklooks.py` | color quicklooks of the products |
 | `02c_relief_tint.py` | pre-composed relief tint (hillshade x pale yarding-class tints) for the unit sheets |
@@ -139,6 +142,29 @@ kept in git. JPEG previews of everything are in `output/previews`.
 
 Runs on QGIS 3.44's bundled Python (GDAL, PDAL, NumPy, SciPy, PyQGIS, matplotlib, ReportLab, openpyxl, pypdf, PyMuPDF, Pillow).
 No ArcGIS required. The full run from download to previews takes about two hours on a laptop.
+
+## Limitations
+
+Read the outputs with these in mind.
+
+- **The cruise is simulated.** Every plot and tree is generated from the LiDAR canopy metrics with planted
+  recording errors, and every review sheet, the workbook and the QA table say so. The statistics are real
+  computations on made-up data.
+- **The cable screen is a screen.** A straight chord from a 50 ft tower to a 10 ft anchor with a clearance and
+  deflection test sorts corridors; the payload figure is the handbook's rigid-link planning estimate at the
+  available deflection, with no catenary, carriage weight, multispan or intermediate-support analysis. It
+  ranks settings; it does not size a yarder.
+- **The unit rules are a demonstration method.** Splitting large regions by k-means on position, elevation
+  and aspect is a rule written for this project to imitate how a layout forester follows ridges and draws;
+  it is not an established industry procedure.
+- **Volumes follow published equations, not a compiler.** Cubic volume uses the PNW-FIA tarif equations by
+  species (MacLean and Berger 1976, as compiled by the California Air Resources Board), board feet the
+  California Scribner ratio of 5.02 per cubic foot of bole wood (Keegan et al. 2010), and biomass the green
+  densities of Miles and Smith 2009. The standards sheet in the workbook lists each constant, its source and URL.
+- **Inputs are taken as published.** NHD stream classes drive the exclusion zones and net acres without
+  field verification; Census TIGER roads can include roads that no longer exist on the ground; the LiDAR
+  omits the coarsest octree levels (about 0.5 % of points).
+- **Nothing is field verified**, and the units, corridors and plots must not be used for operations.
 
 ## What I would do differently
 
