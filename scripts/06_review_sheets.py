@@ -352,7 +352,7 @@ story = []
 
 def watermark(canv, doc):
     """Light grey diagonal SIMULATED DATA on every page; the onPage callback runs before the page content is drawn."""
-    w, h = doc.pagesize; canv.saveState(); canv.setFont(FONT_B, 64); canv.setFillColor(colors.HexColor("#d9d9d9"))
+    w, h = doc.pagesize; canv.saveState(); canv.setFont(FONT_B, 64); canv.setFillColor(colors.HexColor("#cfcfcf"))
     canv.translate(w / 2, h / 2); canv.rotate(40); canv.drawCentredString(0, 0, "SIMULATED DATA"); canv.restoreState()
 
 
@@ -390,7 +390,7 @@ def build_page(u, g):
     page += [Paragraph("Table 1. Stand summary from the BAF 20 cruise, per acre", TT), t1,
              Paragraph(f"Cubic volume = total-stem CVTS by species (PNW-FIA California equations, MacLean and Berger 1976, CARB 2011 compendium) net of defect; Scribner board feet at {BF_PER_CF} bf/cu ft (Keegan et al. 2010, table 2, California 2000-2006); "
                        f"green tons at " + ", ".join(f"{k} {v:.0f}" for k, v in GREEN_LB_PER_CF.items()) + " lb/cu ft of wood (Miles and Smith 2009, NRS-38 table 1A). SDI in the summation form; maximum is the basal-area-weighted FVS Western Sierra species maximum (table 3.5.1, rev. 2025-09-23). "
-                       f"Sampling error at 95 % confidence with Student's t; stratum standard {STRATUM_STD:.0f} % for tree-measurement sales (FSH 2409.12 ch. 40, 41.1). Sources and URLs: cruise_data.xlsx, Standards and assumptions.", FN)]
+                       f"Sampling error at 95 % confidence with Student's t; stratum standard {STRATUM_STD:.0f} % for tree-measurement sales (FSH 2409.12 ch. 40, 41.1). Stand-summary BA counts every tallied tree (plot count x BAF); the stand and stock tables exclude records flagged by QA, such as an out-of-range DBH, so the two can differ by a few tenths. Sources and URLs: cruise_data.xlsx, Standards and assumptions.", FN)]
     # Table 2: stand table by DBH class; Table 3: stock table by species, side by side
     rows2 = [["DBH class, in", "Trees", "TPA", "BA", "cu ft", "MBF"]] + [[f"{k}-{k + DBH_CLASS - 1:.0f}.9", c["n"], f"{c['tpa']:.1f}", f"{c['ba']:.1f}", f"{c['vol']:.0f}", f"{c['vol'] / 1000 * BF_PER_CF:.1f}"] for k, c in sorted(m["cls_stat"].items())]
     rows2.append(["All", sum(c["n"] for c in m["cls_stat"].values()), f"{m['tpa']:.1f}", f"{m['ba']:.1f}", f"{m['cuft']:.0f}", f"{m['mbf']:.1f}"])

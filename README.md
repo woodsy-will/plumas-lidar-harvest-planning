@@ -52,7 +52,7 @@ yarding class in the project.
 
 ### Harvest units
 
-24 demonstration units on 1,621 acres inside the 1,816 acre block.
+24 demonstration units on 1,621 gross acres inside the 1,816-acre block; 1,408 net acres after the stream equipment exclusion zones.
 
 | Method | Units | Acres | Mean slope |
 |---|---|---|---|

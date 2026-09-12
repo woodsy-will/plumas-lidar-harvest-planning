@@ -106,8 +106,11 @@ eez = vl(gpkg, "eez_buffers", "Stream equipment exclusion zone (inside units, ne
 eez.renderer().setSymbol(hatch((0, 112, 192), (0, 112, 192), angle=45, dist=1.2, lw=0.2, ow=0.25))
 streams = vl(gpkg, "streams_aoi", "Streams (NHD)")
 cats = []
-for cls, name, w, st, col in (("perennial", "Perennial stream", 0.6, "solid", "0,112,192,255"), ("intermittent", "Intermittent stream", 0.4, "dash dot", "0,112,192,230"), ("ephemeral", "Ephemeral draw", 0.25, "dot", "60,140,210,200"), ("other", "Other NHD", 0.4, "solid", "0,112,192,255")):
-    cats.append(QgsRendererCategory(cls, line(col, w, st), name))   # USGS hydrography blue; class by line pattern, readable under any color vision
+for cls, name, w, st, col in (("perennial", "Perennial stream", 0.7, "solid", "0,112,192,255"), ("intermittent", "Intermittent stream", 0.4, "dash dot", "0,112,192,230"), ("ephemeral", "Ephemeral draw", 0.25, "dot", "60,140,210,200"), ("other", "Other NHD", 0.4, "solid", "0,112,192,255")):
+    sym = line(col, w, st)
+    if cls == "perennial":   # white casing so the solid stream stays distinct from contour lines in grayscale
+        cas = QgsSimpleLineSymbolLayer(); cas.setColor(QColor(255, 255, 255)); cas.setWidth(1.4); sym.insertSymbolLayer(0, cas)
+    cats.append(QgsRendererCategory(cls, sym, name))   # USGS hydrography blue; class by line pattern, readable under any color vision
 streams.setRenderer(QgsCategorizedSymbolRenderer("class", cats))
 roads = vl(os.path.join(RAW, "fs_roads.geojson"), None, "NFS roads (EDW Road Core)"); rsym = QgsLineSymbol(); rsym.deleteSymbolLayer(0)
 for col, w in (((255, 255, 255, 230), 1.4), ((40, 40, 40, 255), 0.6)):
@@ -129,6 +132,8 @@ present = {f["method"] for f in units.getFeatures()}
 # unit sheets: cased outline by method, interior open so the slope tint inside the unit stays readable (figure over a receded base)
 ucats = [QgsRendererCategory(m, cased_outline(inner=o, outer=(255, 255, 255), wi=0.9, wo=2.2), m) for m, (o, f_) in METHOD_COLORS.items() if m in present]
 units.setRenderer(QgsCategorizedSymbolRenderer("method", ucats)); label(units, "concat('Unit ', \"unit_id\", '\\n', \"method\")", 9)
+from qgis.core import QgsLabelObstacleSettings
+_ls = units.labeling().settings(); _ob = _ls.obstacleSettings(); _ob.setIsObstacle(True); _ob.setType(QgsLabelObstacleSettings.ObstacleType.PolygonBoundary); _ob.setFactor(2.0); _ls.setObstacleSettings(_ob); units.setLabeling(QgsVectorLayerSimpleLabeling(_ls))   # contour labels avoid unit outlines
 # overview and inset: sale-area-map convention, units filled by method with a dashed dark outline (cutting unit boundary)
 units_plain = vl(gpkg, "units", "Harvest units (demonstration), filled by yarding method")
 pcats = []
@@ -218,14 +223,20 @@ def make_layout(name, feat=None, extent=None, scale=None):
     else:
         add_label(layout, "OVERVIEW", px, 22, pw, 9, 15, True)
         y = 34
-        add_label(layout, "Unit  Method        Gross  Net ac  Slope  Canopy  Skyline screen", px, y, pw, 6, 8, True); y += 5
+        # fixed column positions (mm from px) so the proportional font cannot drift the columns
+        cols = [(0, 8, Qt.AlignLeft), (8, 17, Qt.AlignLeft), (25, 12, Qt.AlignRight), (37, 12, Qt.AlignRight), (49, 12, Qt.AlignRight), (61, 12, Qt.AlignRight), (76, pw - 76, Qt.AlignLeft)]
+        def row(vals, yy, size=7, bold=False):
+            for (cx, cw, al), v in zip(cols, vals):
+                add_label(layout, v, px + cx, yy, cw, 5, size, bold, al)
+        row(["Unit", "Method", "Gross ac", "Net ac", "Slope", "Canopy", "Skyline screen"], y, 7, True); y += 5
         tg = tn = 0.0
         for f in sorted(units.getFeatures(), key=lambda x: int(x["unit_id"])):
             dd = dict(zip([x.name() for x in units.fields()], f.attributes())); s = summary.get(int(dd["unit_id"]), {}); tg += dd["acres"]; tn += dd["net_acres"]
             short = {"Small yarder": "small yarder", "Medium yarder": "medium yarder", "Long-span yarder": "long-span", "Intermediate support needed": "interm. support", "No feasible corridor": "no corridor"}
-            scr = (f"{float(s.get('coverage_pct', 0)):.0f} % corridor coverage, {short.get(s.get('equipment', ''), s.get('equipment', ''))}" if dd["method"] == "Cable" else "ground-based") if s else ""
-            add_label(layout, f"{dd['unit_id']:<5} {dd['method']:<13} {dd['acres']:5.0f}  {dd['net_acres']:5.0f}  {dd['slope_mean']:4.0f} %  {dd['cover_pct']:4.0f} %  {scr}", px, y, pw, 5, 7); y += 4.2
-        add_label(layout, f"Total {'':<13} {tg:5.0f}  {tn:5.0f}    (net = gross less stream equipment exclusion zones)", px, y + 1, pw, 5, 7, True); y += 5
+            scr = (f"{float(s.get('coverage_pct', 0)):.0f} % coverage, {short.get(s.get('equipment', ''), s.get('equipment', ''))}" if dd["method"] == "Cable" else "ground-based") if s else ""
+            row([str(dd["unit_id"]), dd["method"], f"{dd['acres']:.0f}", f"{dd['net_acres']:.0f}", f"{dd['slope_mean']:.0f}", f"{dd['cover_pct']:.0f}", scr], y); y += 4.2
+        row(["Total", "", f"{tg:.0f}", f"{tn:.0f}", "", "", "24 units"], y + 1, 7, True); y += 5
+        add_label(layout, "Slope = mean planning slope, percent. Canopy = cover, percent. Net = gross less stream equipment exclusion zones. Unit acres are rounded; totals are from unrounded values.", px, y, pw, 8, 6); y += 7
         ly = y + 4
     leg = QgsLayoutItemLegend(layout); leg.setTitle("Legend"); leg.setAutoUpdateModel(False); leg.setLinkedMap(m)
     mdl = leg.model().rootGroup(); mdl.clear()

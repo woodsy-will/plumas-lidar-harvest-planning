@@ -12,7 +12,7 @@ written by `scripts/08_package_gis.py`. The same layers exist in the working fil
 | Title | Mohawk Valley West Slope: LiDAR-based harvest-unit planning (demonstration) |
 | Abstract | Harvest-unit layout, cable-yarding screen and simulated cruise for the Community Protection treatment block nearest Whitehawk Ranch, Plumas National Forest, computed from public data only |
 | Purpose | Portfolio demonstration of a planning workflow. Not a Forest Service proposal; no field verification |
-| Author, date | William Steinley, 2026-09-10 |
+| Author, date | William Steinley, 2026-09-12 |
 | Spatial reference | EPSG:2226, NAD83 / California zone 2, US survey feet; heights in feet |
 | LiDAR | USGS 3DEP CA_NoCAL_Wildfires_PlumasNF_B2_2018, QL1, flown 2018, read from the USGS Entwine copy; about 650 million points over 3,948 ac |
 | Vector sources | USFS EDW Activity Project Areas and Road Core; BLM Surface Management Agency and CadNSDI PLSS; USGS NHD at 1:24,000; Census TIGER roads; all downloaded September 2026 |
