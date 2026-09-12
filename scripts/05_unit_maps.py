@@ -241,14 +241,14 @@ def make_layout(name, feat=None, extent=None, scale=None):
     leg.setStyleMargin(QgsLegendStyle.Subgroup, QgsLegendStyle.Top, 2.0); leg.setStyleMargin(QgsLegendStyle.Symbol, QgsLegendStyle.Top, 1.4)
     for style, size in ((QgsLegendStyle.Title, 10), (QgsLegendStyle.Group, 8), (QgsLegendStyle.Subgroup, 8), (QgsLegendStyle.SymbolLabel, 7.5)):
         st = leg.style(style); fnt = QFont("Arial"); fnt.setPointSizeF(size); fnt.setBold(style in (QgsLegendStyle.Title, QgsLegendStyle.Subgroup)); st.setFont(fnt); leg.setStyle(style, st)
-    leg.attemptMove(QgsLayoutPoint(px, ly, QgsUnitTypes.LayoutMillimeters)); leg.attemptResize(QgsLayoutSize(pw, 100, QgsUnitTypes.LayoutMillimeters)); layout.addLayoutItem(leg)
-    sb = QgsLayoutItemScaleBar(layout); sb.setLinkedMap(m); sb.setStyle("Single Box"); sb.setUnits(QgsUnitTypes.DistanceFeet); sb.setUnitLabel("ft"); sb.setNumberOfSegments(2); sb.setNumberOfSegmentsLeft(0); sb.setUnitsPerSegment(1000 if scale and scale <= 12000 else 2000)
+    leg.attemptMove(QgsLayoutPoint(px, ly, QgsUnitTypes.LayoutMillimeters)); leg.attemptResize(QgsLayoutSize(pw, 268 - ly, QgsUnitTypes.LayoutMillimeters)); layout.addLayoutItem(leg)
+    sb = QgsLayoutItemScaleBar(layout); sb.setLinkedMap(m); sb.setStyle("Single Box"); sb.setUnits(QgsUnitTypes.DistanceFeet); sb.setUnitLabel("ft"); sb.setNumberOfSegments(2); sb.setNumberOfSegmentsLeft(0); sb.setUnitsPerSegment(500 if scale and scale <= 6000 else 1000 if scale and scale <= 12000 else 2000)
     sb.setHeight(2.5); sb.setLabelBarSpace(1); sb.attemptMove(QgsLayoutPoint(10, 250, QgsUnitTypes.LayoutMillimeters)); layout.addLayoutItem(sb)
     add_label(layout, f"Scale 1:{int(round(m.scale())):,}   Contours 40 ft   North: grid, CA State Plane Zone 2", 148, 251, 92, 6, 7)
-    add_label(layout, f"Sheet {SHEET[0]} of {SHEET[1]}   {DATE}", 250, 251, 56, 6, 8, False, Qt.AlignRight)
+    add_label(layout, f"Sheet {SHEET[0]} of {SHEET[1]}   {DATE}", 250, 251, 56, 6, 8, False, Qt.AlignRight); add_label(layout, "N", 247.8, 250.3, 5, 5, 7, True)
     north = QgsLayoutItemPicture(layout); north.setPicturePath(os.path.join(QgsApplication.prefixPath(), "svg", "arrows", "NorthArrow_04.svg")); north.attemptMove(QgsLayoutPoint(240.5, 248.5, QgsUnitTypes.LayoutMillimeters)); north.attemptResize(QgsLayoutSize(7, 7.5, QgsUnitTypes.LayoutMillimeters)); layout.addLayoutItem(north)
     if feat is not None:
-        ins = QgsLayoutItemMap(layout); ins.setKeepLayerSet(True); ins.setLayers([cur, units_inset, block, hill]); ins.setCrs(CRS); ins.attemptMove(QgsLayoutPoint(px, 230, QgsUnitTypes.LayoutMillimeters)); ins.attemptResize(QgsLayoutSize(pw, 34, QgsUnitTypes.LayoutMillimeters)); ins.zoomToExtent(block_ext.buffered(1500)); ins.setFrameEnabled(True)
+        ins = QgsLayoutItemMap(layout); ins.setKeepLayerSet(True); ins.setLayers([cur, units_inset, block, hill]); ins.setCrs(CRS); ins.attemptMove(QgsLayoutPoint(251, 211, QgsUnitTypes.LayoutMillimeters)); ins.attemptResize(QgsLayoutSize(55, 35, QgsUnitTypes.LayoutMillimeters)); ins.setBackgroundEnabled(True); ins.setBackgroundColor(QColor(255, 255, 255)); ins.zoomToExtent(block_ext.buffered(1500)); ins.refresh()   # locator in the map corner so the panel legend can run to the footer; ins.zoomToExtent(block_ext.buffered(1500)); ins.setFrameEnabled(True)
         ov = QgsLayoutItemMapOverview("cur", ins); ov.setLinkedMap(m); ov.setFrameSymbol(fill("255,0,0,40", "255,0,0,255", 0.5)); ins.overviews().addOverview(ov); layout.addLayoutItem(ins)
     add_label(layout, "Sources: USGS 3DEP CA_NoCAL_Wildfires_PlumasNF 2018 (QL1); USFS EDW Activity Project Areas and Road Core; USGS NHD; BLM SMA and PLSS; Census TIGER roads. "
                       "CA State Plane Zone 2, NAD83, US ft. Currency: LiDAR flown 2018; roads, NEPA areas, ownership and hydrography as downloaded Sept 2026; NHD at 1:24,000. Units delineated by the documented rules in docs/methods.md; "
@@ -302,6 +302,7 @@ try:
     w = PdfWriter()
     for p in [os.path.join(OUT, "Overview.pdf")] + pages:
         w.append(p)
+    w.add_metadata({"/Title": "Mohawk Valley West Slope - Harvest Unit Planning, 25-sheet map series (demonstration from public data)", "/Author": "William Steinley"})
     w.write(os.path.join(OUT, "Unit_Map_Series.pdf")); print("merged", len(pages) + 1, "pages")
 except Exception as e:
     print("merge skipped:", e)
