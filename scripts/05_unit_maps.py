@@ -13,7 +13,7 @@ import csv
 import os
 import sys
 
-from qgis.core import (QgsCoordinateTransform, QgsMapLayerLegendUtils, QgsLegendStyle, QgsApplication, QgsCoordinateReferenceSystem, QgsFillSymbol, QgsLayoutExporter, QgsLayoutItemLabel,
+from qgis.core import (QgsLayoutMeasurement, QgsCoordinateTransform, QgsMapLayerLegendUtils, QgsLegendStyle, QgsApplication, QgsCoordinateReferenceSystem, QgsFillSymbol, QgsLayoutExporter, QgsLayoutItemLabel,
                        QgsLayoutItemLegend, QgsLayoutItemMap, QgsLayoutItemPicture, QgsLayoutItemScaleBar, QgsLayoutPoint,
                        QgsLayoutSize, QgsLineSymbol, QgsMarkerSymbol, QgsPalLayerSettings, QgsPrintLayout, QgsProject,
                        QgsRasterLayer, QgsTextFormat, QgsUnitTypes, QgsVectorLayer, QgsVectorLayerSimpleLabeling, QgsLayoutItemMapOverview,
@@ -248,7 +248,7 @@ def make_layout(name, feat=None, extent=None, scale=None):
     add_label(layout, f"Sheet {SHEET[0]} of {SHEET[1]}   {DATE}", 250, 251, 56, 6, 8, False, Qt.AlignRight); add_label(layout, "N", 247.8, 250.3, 5, 5, 7, True)
     north = QgsLayoutItemPicture(layout); north.setPicturePath(os.path.join(QgsApplication.prefixPath(), "svg", "arrows", "NorthArrow_04.svg")); north.attemptMove(QgsLayoutPoint(240.5, 248.5, QgsUnitTypes.LayoutMillimeters)); north.attemptResize(QgsLayoutSize(7, 7.5, QgsUnitTypes.LayoutMillimeters)); layout.addLayoutItem(north)
     if feat is not None:
-        ins = QgsLayoutItemMap(layout); ins.setKeepLayerSet(True); ins.setLayers([cur, units_inset, block, hill]); ins.setCrs(CRS); ins.attemptMove(QgsLayoutPoint(251, 211, QgsUnitTypes.LayoutMillimeters)); ins.attemptResize(QgsLayoutSize(55, 35, QgsUnitTypes.LayoutMillimeters)); ins.setBackgroundEnabled(True); ins.setBackgroundColor(QColor(255, 255, 255)); ins.zoomToExtent(block_ext.buffered(1500)); ins.refresh()   # locator in the map corner so the panel legend can run to the footer; ins.zoomToExtent(block_ext.buffered(1500)); ins.setFrameEnabled(True)
+        ins = QgsLayoutItemMap(layout); ins.setKeepLayerSet(True); ins.setLayers([cur, units_inset, block, hill]); ins.setCrs(CRS); ins.attemptMove(QgsLayoutPoint(251, 211, QgsUnitTypes.LayoutMillimeters)); ins.attemptResize(QgsLayoutSize(55, 35, QgsUnitTypes.LayoutMillimeters)); ins.setBackgroundEnabled(True); ins.setBackgroundColor(QColor(255, 255, 255)); ins.zoomToExtent(block_ext.buffered(1500)); ins.setFrameEnabled(True); ins.setFrameStrokeWidth(QgsLayoutMeasurement(0.5, QgsUnitTypes.LayoutMillimeters)); ins.setFrameStrokeColor(QColor(0, 0, 0)); m.addLabelBlockingItem(ins); ins.refresh()   # locator in the map corner so the panel legend can run to the footer; ins.zoomToExtent(block_ext.buffered(1500)); ins.setFrameEnabled(True)
         ov = QgsLayoutItemMapOverview("cur", ins); ov.setLinkedMap(m); ov.setFrameSymbol(fill("255,0,0,40", "255,0,0,255", 0.5)); ins.overviews().addOverview(ov); layout.addLayoutItem(ins)
     add_label(layout, "Sources: USGS 3DEP CA_NoCAL_Wildfires_PlumasNF 2018 (QL1); USFS EDW Activity Project Areas and Road Core; USGS NHD; BLM SMA and PLSS; Census TIGER roads. "
                       "CA State Plane Zone 2, NAD83, US ft. Currency: LiDAR flown 2018; roads, NEPA areas, ownership and hydrography as downloaded Sept 2026; NHD at 1:24,000. Units delineated by the documented rules in docs/methods.md; "
