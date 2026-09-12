@@ -10,6 +10,8 @@ appear here. Everything in this repository was written from scratch and computed
 The harvest units are demonstration polygons delineated by the documented rules in `docs/methods.md`;
 they are not a Forest Service proposal, and no field verification has been done.
 
+**Interactive map:** https://woodsy-will.github.io/projects/plumas-lidar-harvest-planning/map/ (units, skyline corridors, landings, exclusion zones, yarding class and simulated plots, on USGS basemaps).
+
 ![Unit 404 sheet: LiDAR hillshade with yarding-class tints, cased unit outlines, stream exclusion zones, skyline corridors from four landings, legend and unit panel](output/previews/map_Unit_404.jpg)
 
 | Overview sheet | Skyline profiles, unit 404 | Field-data review, unit 101 | Yarding class |
