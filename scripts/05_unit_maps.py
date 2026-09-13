@@ -204,14 +204,14 @@ def make_layout(name, feat=None, extent=None, scale=None):
         a = feat.attributes(); names = [f.name() for f in units.fields()]; d = dict(zip(names, a)); s = summary.get(int(d["unit_id"]), {})
         add_label(layout, f"UNIT {d['unit_id']}  -  {d['method'].upper()}", px, 22, pw, 9, 15, True)
         rows = [("Acres", f"{d['acres']:.1f}"), ("Mean slope", f"{d['slope_mean']:.0f} %  (98th pct {d['slope_max']:.0f} %)"), ("Aspect", d["aspect"]),
-                ("Elevation", f"{d['elev_min']:.0f} - {d['elev_max']:.0f} ft"), ("Canopy cover", f"{d['cover_pct']:.0f} %  (66 ft window)"), ("Dominant height", f"{d['dom_ht']:.0f} ft  (95th pct CHM)"),
+                ("Elevation", f"{d['elev_min']:.0f} - {d['elev_max']:.0f} ft"), ("Canopy cover", f"{d['cover_pct']:.0f} %  (66 ft window)"), ("Dominant height", f"{d['dom_ht']:.0f} ft  (unit mean of 66 ft p95 CHM)"),
                 ("Nearest road", "road inside unit" if d["road_ft"] < 1 else f"{d['road_ft']:,.0f} ft  (NFS or local)")]
         if s and d["method"] == "Cable":
             rows += [("", ""), ("YARDING SCREEN", ""), ("Landings selected", f"{s['landings_used']} of {s['landings']} candidates"), ("Feasible corridors", f"{int(s['corridors_feasible']):,} of {int(s['corridors']):,}  (50 ft tower)"),
                      ("With 70 ft tower", f"{int(s['corridors_feasible_70ft']):,}"), ("Unit coverage", f"{s['coverage_pct']} %"), ("Mean deflection", f"{s['mean_deflection_pct']} %"),
                      ("Downhill yarding", f"{s['downhill_share_pct']} % of corridors"), ("Longest feasible span", f"{float(s['max_feasible_span_ft']):,.0f} ft"), ("Equipment class", s["equipment"]), ("Difficulty", s["difficulty"])]
             if s.get("payload_at_best_lb", "").strip():
-                rows.append(("Allowable load", f"{float(s['payload_at_best_lb']):,.0f} lb  (7/8 in skyline, SF 3)"))   # best corridor, mid-span; method in docs/methods.md
+                rows.append(("Allowable load", f"{float(s['payload_at_best_lb']):,.0f} lb  (7/8 in skyline, SF 3)"))   # best corridor by payload at the governing loaded deflection; method in docs/methods.md
         elif s:
             rows += [("", ""), ("YARDING SCREEN", ""), ("System", "Ground-based (slope <= 35 %)"), ("Skyline check", f"{int(s['corridors_feasible']):,} feasible corridors, {float(s['coverage_pct']):.0f} % corridor coverage if cable were required")]
         y = 34

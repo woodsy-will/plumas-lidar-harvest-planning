@@ -203,12 +203,14 @@ for u, g in polys.items():
     g = g.Buffer(30).Buffer(-30).SimplifyPreserveTopology(20)        # round the raster stair-steps, then generalise to 20 ft
     if g.IsEmpty() or g.GetArea() / 43560 < MIN_AC * 0.8:
         continue
-    m = final == u
+    m = rasterize([g]) & ~np.isnan(slope)                             # statistics on the published (smoothed) polygon, every cell inside it
+    if not m.any():
+        m = final == u
     sl = slope[m]; asp = aspect[m]; asp = asp[~np.isnan(asp)]
     ang = np.deg2rad(asp)
     mean_asp = (np.degrees(np.arctan2(np.sin(ang).mean(), np.cos(ang).mean())) + 360) % 360
     smean = float(np.nanmean(sl)); dh = float(np.nanmean(dom[m])); cv = float(np.nanmean(cover[m])) * 100
-    method = "Hand Thinning" if (dh < 55 and cv >= 50) else ("Tractor" if smean <= 35 else "Cable")
+    method = "Hand Thinning" if (dh < 55 and cv >= 50) else ("Tractor" if float(np.nanmean(slope[final == u])) <= 35 else "Cable")   # method from the raster region, as delineated
     rows.append(dict(geom=g, x=g.Centroid().GetX(), method=method, acres=g.GetArea() / 43560, net_acres=g.GetArea() / 43560 * (1 - float(eez[m].mean())),
                      slope_mean=smean, slope_max=float(np.nanpercentile(sl, 98)),
                      aspect=DIRS[int(((mean_asp + 22.5) % 360) // 45)],

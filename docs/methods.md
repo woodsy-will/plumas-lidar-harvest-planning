@@ -70,19 +70,44 @@ For each Cable unit, and for Tractor units as a check:
 
 1. Candidate landings are road points within 500 ft of the unit, sampled every 200 ft along NFS and TIGER roads; a unit with no road that close is served from its nearest road points up to 2,000 ft away; on tractor units the candidate list is thinned to at most 12 landings and corridors are cast every 10 degrees rather than 5.
 2. From each landing, corridors are cast every 5 degrees (10 for tractor units) across the unit to a tailhold 100 ft beyond the
-   far boundary, and profiles sampled from the DTM every 10 ft.
-3. Skyline geometry: tower height 50 ft (medium yarder) with a 70 ft alternative, tailhold anchor 10 ft.
-   The chord runs from tower top to anchor. A corridor is feasible when the profile never rises within
-   10 ft of the chord and the mid-span deflection, chord height above ground at mid-span divided by span
-   length, is at least 6 %, the usual planning minimum for partial-suspension payloads.
+   far boundary (the 100 ft tailhold offset is an assumption of this project: room for a stump or deadman anchor
+   outside the cut boundary), and profiles sampled from the DTM every 10 ft.
+3. Skyline geometry: tower height 50 ft with a 70 ft alternative, tailhold anchor 10 ft. The tower heights are an
+   assumption of this project standing for a medium and a tall swing yarder; they are not taken from a
+   manufacturer's table. The chord runs from tower top to anchor. A corridor is feasible when the profile never
+   rises within 10 ft of the chord (the 10 ft chord clearance is an assumption of this project; PNW-39 leaves the
+   carriage, choker, log and ground clearance to the planner) and the available mid-span deflection, chord height
+   above ground at mid-span divided by span length, is at least 6 %, the usual planning minimum for
+   partial-suspension payloads (*Best Practice Guidelines for Cable Logging*, see below).
 4. Span classes for equipment: up to 1,000 ft small yarder, up to 1,800 ft medium, up to 3,000 ft
-   long-span; longer spans are flagged as needing intermediate supports.
-5. Unit coverage is the share of the unit within 150 ft (lateral yarding reach) of a feasible corridor from the
+   long-span; longer spans are flagged as needing intermediate supports. The class limits are an assumption of
+   this project chosen to sort corridors into rough yarder sizes; they are not published capability ratings.
+5. Unit coverage is the share of the unit within 150 ft (lateral yarding reach, an assumption of this project for
+   a carriage with a slackpulling line) of a feasible corridor from the
    landings actually selected: up to four, chosen greedily for total coverage and stopped when the next landing
    adds less than 3 % of the unit.
    Difficulty combines coverage, mean available deflection, ground slope and the downhill-yarding share.
-6. Payload estimate (`04b_cable_figures.py`). For each feasible corridor the allowable load at mid-span is computed
-   for a 7/8 in extra-improved plow-steel skyline (6x19 IWRC, 1.42 lb per ft, breaking strength 79.6 kips) worked at
+6. Loaded deflection (`04_cable_analysis.py`, `loaded_deflection()`). The available deflection of step 3 is the
+   height of the empty chord above the ground at mid-span; it says nothing about the ground elsewhere. PNW-39
+   (pp. 9-10) sets the allowable loaded deflection with a chain of fixed length hung between the supports after
+   the clearance needed for carriage, chokers, logs and ground has been subtracted from the support heights; a
+   weight standing for the carriage and load is walked along the span, the chain is let out until the loaded line
+   just clears the ground at the critical point wherever that is, and the deflection is then read at mid-span.
+   The script does the same search numerically: the loaded skyline is taken as a parabola below the chord (the
+   shape of a uniformly loaded line, the usual planning stand-in for the catenary) and the loaded deflection is
+   the largest mid-span sag for which the line stays at least 10 ft above the ground at every interior profile
+   point; the 10 ft (carriage and rigging plus the leading end of a partially suspended log) is an assumption of
+   this project. The tower height is already in the chord. The point that limits the sag is written as
+   `govern_x_ft` (distance from the landing) next to `loaded_deflection_pct` on the corridors layer and the route
+   tables, so a corridor that is deep at mid-span but tight near an end is reported at the tight point, not at
+   mid-span. A corridor carries a payload only when its loaded deflection is at least 3 % (`payload_ok`); that
+   threshold is an assumption of this project below which the working load is spent lifting the rope. `payload_ok`
+   is separate from `feasible`, which keeps the clearance and 6 % available-deflection tests of step 3, so the
+   feasible-corridor counts remain comparable with earlier runs; the summary carries both
+   (`corridors_feasible`, `corridors_payload_ok`).
+7. Payload estimate (`04b_cable_figures.py`). For each feasible corridor with `payload_ok`, the allowable load at
+   the governing loaded deflection is computed for a 7/8 in extra-improved plow-steel skyline (6x19 IWRC, 1.42 lb
+   per ft, breaking strength 79.6 kips) worked at
    a safe working load of breaking strength divided by 3, 26.5 kips, the minimum safety factor the handbook
    recommends for skyline design (Lysons and Mann 1967, *Skyline tension and deflection handbook*, USFS Research
    Paper PNW-39, p. 3; rope table 1, p. 24; the same rope table is table 4-3, p. 25, of the Forest Service *Cable
@@ -93,20 +118,26 @@ For each Cable unit, and for Tractor units as a check:
    tables, this script computes them by rigid-link statics: the skyline is two straight links from the supports
    to the load at mid-span, each carrying half the cable weight (measured along the chord) at its midpoint. In
    words, the horizontal tension is the span times (twice the load plus the cable weight) divided by eight times
-   the mid-span deflection; the vertical component at the upper support is that horizontal tension times (chord
-   slope plus twice the deflection ratio) plus a quarter of the cable weight; the upper-end tension is their
-   resultant. Solved for the load at the safe working load, this reproduces the handbook's table 2 (tension due
-   to cable weight, p. 32) and table 4 (tension due to a mid-span load, carriage clamped to the skyline, p. 36)
-   within 1 % for span slopes of 0 to 55 %. Limitations: the available deflection, chord to ground at mid-span,
-   is taken as the loaded deflection, the planning assumption; it is optimistic wherever the ground is close to
-   the chord, because the handbook's loaded deflection is the available deflection less the carriage, choker,
-   log and ground clearance. The result is the gross load at the carriage and no carriage weight is subtracted.
-   The links are straight, not catenaries; single span only, no intermediate supports; the clamped-carriage
-   (higher-tension) case is used throughout; and on short spans the figure is what the rope would hold, which
-   the yarder line pull and carriage would limit first. The estimate is reported as `payload_lb` on the route
-   tables, as an annotation on the profile sheets, in Fig 7, and as `max_payload_lb` and `payload_at_best_lb`
-   in `unit_summary.csv`; it is not stored in the GeoPackage. *Cable Logging Systems* (p. 87) puts the deflection
-   needed to carry a payload at 8 to 10 %, so corridors passed at 6 to 8 % carry the smallest loads.
+   the loaded mid-span deflection; the vertical component at the upper support is that horizontal tension times
+   (chord slope plus twice the deflection ratio) plus a quarter of the cable weight; the upper-end tension is their
+   resultant. Checked against the handbook: table 4 (tension due to a mid-span load, carriage clamped to the
+   skyline, p. 36) agrees within about 0.4 % at 2 to 20 % deflection; table 2 (tension due to cable weight, p. 32)
+   agrees within 1 % only to about 7 % deflection, then falls below the catenary value, about 4 % low at 10 % and
+   about 15 % low at 30 % deflection. The table 2 error has a negligible effect on the payload because the
+   cable-weight tension is small against the 26.5 kip working load where the error is large (about 2 kips at
+   10 % deflection on a 1,000 ft span, under 1 kip at 30 %), and at the low deflections where that tension matters
+   (about 6 kips at 3 %) the two agree within a few tenths of a percent. Corridors with loaded deflection under 3 % are given a payload of 0 and left out of
+   the maximum and best-corridor figures. The best corridor of a unit, and of each landing on the profile sheets
+   and route tables, is the one with the largest payload, not the largest deflection. Remaining limitations: the
+   result is the gross load at the carriage and no carriage weight is subtracted; the links are straight, not
+   catenaries; single span only, no intermediate supports; the clamped-carriage (higher-tension) case is used
+   throughout; and on short spans the figure is what the rope would hold, which the yarder line pull and
+   carriage would limit first. The estimate is reported as `Payload, lb` on the route tables, as an annotation on
+   the profile sheets (which also draw the loaded line and mark the governing point), in Fig 7 (with reference
+   curves at 3, 6, 8 and 10 % loaded deflection on a level chord), and as `max_payload_lb` and
+   `payload_at_best_lb` in `unit_summary.csv`; it is not stored in the GeoPackage, only its inputs are.
+   *Cable Logging Systems* (p. 87) puts the deflection needed to carry a payload at 8 to 10 %, so corridors with
+   loaded deflections of 3 to 8 % carry the smallest loads.
 
 These are planning-level screens of the kind used to sort units by logging system before a field review,
 not an engineered skyline design. Two definitions follow the Forest Service *Cable Logging Systems* guide
@@ -170,18 +201,18 @@ Computations and the standards they follow:
 |---|---|---|
 | Basal area | plot BA = trees in x BAF; tree BA = 0.005454 x DBH^2 | standard mensuration |
 | Trees per acre | per-tree expansion BAF / tree BA, averaged over plots | variable-radius sampling |
-| Sampling error | t(0.975, n-1) x SE of plot BA / mean, in percent | FSH 2409.12 ch. 40 sec. 41.1: 95 % confidence, t = 2 for large n |
-| Stratum standard | 40 % per unit | FSH 2409.12 ch. 40 sec. 41.1(5)(b), tree-measurement sales |
-| Sale-as-a-whole | stratified estimate with area weights; standard from exhibit 01 by estimated sale value (10 % above $120,000) | FSH 2409.12 ch. 40 sec. 41.1 exhibit 01; value placed at $33.63/MBF, the Region 5 FY2025 average sold value: $9,223,272.19 over 274,275.08 MBF sold, all sales, region total row of the Forest Service Cut and Sold report CUTS203R, cumulative FY2025 Q1-Q4, run 2025-12-08 (https://www.fs.usda.gov/sites/default/files/2025-q4-cut-sold-r05.pdf). The report excludes Good Neighbor sale values and warns against using it for unit values, so the placement is a demonstration |
-| Plots for the standard | (t x CV / E)^2; the Region 5 practice minimum of 20 plots is reported separately | FSH 2409.12 ch. 30 |
+| Sampling error | t(0.975, n-1) x SE of plot net cubic volume per acre / mean, in percent; plot volume = sum over the plot's tally trees of net CVTS x BAF / tree BA. The same statistic on plot BA is reported as a secondary figure ("basal area"), not tested against the standard; the volume CV runs about twice the basal-area CV | FSH 2409.12 ch. 40 sec. 41.1(5)(a) sale-as-a-whole volume error standard and 41.1(5)(b) stratum volume error standard: the standards apply to volume at 95 % confidence, t = 2 for large n |
+| Stratum standard | 40 % of volume per unit | FSH 2409.12 ch. 40 sec. 41.1(5)(b), tree-measurement sales |
+| Sale-as-a-whole | stratified estimate of volume per acre with gross-area weights (plots sample the gross unit), t = 2; sale MBF and value for the exhibit 01 placement use net acres (gross less stream equipment exclusion zones), with the gross-acre total also reported; standard from exhibit 01 by estimated sale value (10 % above $120,000) | FSH 2409.12 ch. 40 sec. 41.1(5)(a) and exhibit 01; value placed at $33.63/MBF, the Region 5 FY2025 average sold value: $9,223,272.19 over 274,275.08 MBF sold, all sales, region total row of the Forest Service Cut and Sold report CUTS203R, cumulative FY2025 Q1-Q4, run 2025-12-08 (https://www.fs.usda.gov/sites/default/files/2025-q4-cut-sold-r05.pdf). The report excludes Good Neighbor sale values and warns against using it for unit values, so the placement is a demonstration |
+| Plots for the standard | (t x CV / E)^2 with the volume CV (the basal-area figure is also listed); the 20-plot local practice, not a handbook standard, is reported separately | FSH 2409.12 ch. 30 |
 | SDI | summation form, sum of TPA x (DBH/10)^1.605 | Reineke 1933; Shaw 2000 |
 | SDI maximum | basal-area-weighted mean of species maxima: PP 365, WF 800, DF 570, SP 561, IC 576 | FVS Staff 2008 (revised 2025-09-23), Western Sierra Nevada (WS) Variant Overview, Forest Vegetation Simulator, table 3.5.1 (https://www.fs.usda.gov/sites/default/files/forest-management/fvs-ws-overview.pdf); earlier revisions of the overview listed different maxima for some species |
 | Density zones and target | 35 % of maximum = lower limit of full occupancy, 60 % = onset of competition mortality; leave target 35 % expressed as BA | Long 1985; Long and Shaw 2012 |
 | Cubic volume | total-stem cubic volume (CVTS, top and stump included) by species: DF eq. 3, PP eq. 5, IC eq. 19, SP eq. 20, WF eq. 23 of the PNW-FIA tarif system (CF4, CV4, tarif, CVTS; trees under 6 in by the small-tree tarif), net of recorded defect; species codes without an equation fall back to BA x total height x form factor 0.42 | PNW-FIA volume equations for California (MacLean and Berger 1976, PNW Research Note PNW-266), as tabulated in "Volume estimation for the PNW-FIA Integrated Database", reproduced by the California Air Resources Board (2011): species table p. 5 (CA column), equations pp. 9, 11, 25, 26 and 29 (https://ww2.arb.ca.gov/sites/default/files/cap-and-trade/protocols/usforest/2011/volume_equations.pdf); fallback form factor after Avery and Burkhart, Forest Measurements (5th ed., 2002) |
 | Exhibit 01 tiers (tree measurement) | sampling-error standard by estimated sale value: 25 % under $10,000; 20 % to $20,000; 18 % to $45,000; 16 % to $70,000; 14 % to $95,000; 12 % to $120,000; 10 % above | FSH 2409.12 ch. 40, 41.1 exhibit 01 |
-| CVTS form-class guard | the cubic form factor from each species equation is held to 0.30 to 0.40 (incense-cedar floor 0.27) so trees outside the tabulated size range cannot extrapolate to an unreasonable volume | this project; a guard, not part of the published equations |
+| CVTS form-class bounds | the cubic form factor CF4 from each species equation is held to 0.30 to 0.40 for DF, PP, SP and WF, with a floor of 0.27 and no ceiling for incense-cedar; these bounds are printed on the CARB 2011 equation pages for each species and are applied as printed | MacLean and Berger 1976 as reproduced by CARB (2011), equation pages 9, 11, 25, 26 and 29; part of the published equations, not a guard added by this project |
 | Simulated trees | per plot: BA target 60 + 180 x canopy cover with N(0, 25) noise; DBH lognormal around 0.28 x dominant height with sigma 0.35, clipped to 5 to 60 in; height from dominant height by a 0.45-power curve with N(0, 8) noise; seed 20260910 | this project; documented so the simulation is reproducible |
-| Board feet | 5.02 Scribner bf per cu ft, applied to CVTS | Keegan, Morgan, Blatner and Daniels 2010, Trends in lumber processing in the western United States, Part I: Board foot Scribner volume per cubic foot of timber, Forest Prod. J. 60(2):133-139, table 2 (p. 135): California, 2000-2006, board feet Scribner per cubic foot of bole wood inside bark (the abstract rounds it to 5.03); treesearch 37833 (https://research.fs.usda.gov/treesearch/37833). Applied to total-stem cubic volume it overstates sawlog board feet somewhat |
+| Board feet | 5.02 Scribner bf per cu ft, applied to CVTS | Keegan, Morgan, Blatner and Daniels 2010, Trends in lumber processing in the western United States, Part I: Board foot Scribner volume per cubic foot of timber, Forest Prod. J. 60(2):133-139, table 2 (p. 135): California, 2000-2006, board feet Scribner per cubic foot of bole wood inside bark (the abstract rounds it to 5.03); treesearch 37833 (https://research.fs.usda.gov/treesearch/37833). The Keegan ratio is Scribner log scale per cubic foot of delivered sawlog fiber, so applying it to total-stem CVTS (top, stump and non-sawlog stems included) overstates sawlog board-foot volume; the consistent pairing would be merchantable cubic volume, which the tarif equations do not give without a merchantable-top conversion |
 | Biomass | green weight of wood by species: PP 45, WF 47, DF 38, SP 49, IC 45 lb per cu ft; unknown codes 45 | Miles and Smith 2009, Specific gravity and other properties of wood and bark for 156 tree species found in North America, Research Note NRS-38, table 1A (pp. 8-9), average green weight of wood on a green-volume basis, bark excluded; Douglas-fir is a single entry there (FIA code 202, not split coast/interior); treesearch 34185 (https://research.fs.usda.gov/treesearch/34185) |
 | CWHR | size from QMD (3: 6 to 11 in, 4: 11 to 24, 5: over 24); density from cover (S 10 to 24 %, P 25 to 39, M 40 to 59, D 60 and over) | California Wildlife Habitat Relationships |
 

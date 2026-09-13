@@ -54,7 +54,7 @@ yarding class in the project.
 
 ### Harvest units
 
-24 demonstration units on 1,621 gross acres inside the 1,816-acre block; 1,408 net acres after the stream equipment exclusion zones.
+24 demonstration units on 1,621 gross acres inside the 1,816-acre block; 1,407 net acres after the stream equipment exclusion zones.
 
 | Method | Units | Acres | Mean slope |
 |---|---|---|---|
@@ -68,22 +68,30 @@ the boundary as an internal restriction and netted out of treatable acres.
 
 8,540 corridors were cast from 314 candidate landings on the 240 road points within reach of a unit, drawn from 940 road points sampled every 200 ft. For the six cable units:
 
-| Unit | Acres | Feasible corridors | Coverage | Equipment class | Difficulty |
-|---|---|---|---|---|---|
-| 401 | 30 | 0 of 68 | 0 % | no feasible corridor from any landing within 2,000 ft | High: needs a spur road or a different system |
-| 402 | 39 | 182 of 374 | 70 % | long-span yarder | Moderate |
-| 403 | 34 | 124 of 551 | 52 % | long-span yarder | Moderate |
-| 404 | 51 | 205 of 2,022 | 61 % | intermediate support needed | Moderate |
-| 405 | 43 | 261 of 1,464 | 42 % | medium yarder | Moderate |
-| 406 | 35 | 9 of 41 | 70 % | long-span yarder | Moderate |
+| Unit | Acres | Feasible corridors | Coverage | Equipment class | Difficulty | Corridors with a credited payload | Allowable load, best corridor |
+|---|---|---|---|---|---|---|---|
+| 401 | 30 | 0 of 68 | 0 % | no feasible corridor from any landing within 2,000 ft | High: needs a spur road or a different system | 0 | none |
+| 402 | 39 | 182 of 374 | 70 % | long-span yarder | Moderate | 110 | 10,830 lb |
+| 403 | 34 | 124 of 551 | 52 % | long-span yarder | Moderate | 72 | 15,443 lb |
+| 404 | 51 | 205 of 2,022 | 61 % | intermediate support needed | Moderate | 169 | 8,819 lb |
+| 405 | 43 | 261 of 1,464 | 42 % | medium yarder | Moderate | 216 | 9,645 lb |
+| 406 | 35 | 9 of 41 | 70 % | long-span yarder | Moderate | 0 | none: every feasible corridor has under 3 % loaded deflection |
+
+A corridor is *feasible* when the straight chord clears the ground by 10 ft and its unloaded mid-span deflection is at
+least 6 %. It is *credited with a payload* only when the loaded line, sagging as a parabola, still clears every point of
+the profile by 10 ft at a mid-span deflection of at least 3 % (PNW-39 chain method). The allowable load is the
+7/8 in skyline's working load at that governing loaded deflection, for the highest-payload corridor from the selected
+landings; unit 406's corridors pass the chord test but not the loaded-line test.
 
 The same screen runs on the tractor units as a check; their results are reported on the sheets as what
 would happen if cable were required. Each unit also gets a profile sheet (best corridor from each selected
 landing, with chord, mid-span deflection and minimum clearance drawn), and, where any corridor is feasible, a route table of distinct settings
 with chord slope and yarding direction, and external and average yarding distances as the Forest Service
-*Cable Logging Systems* guide defines them. Each feasible corridor also carries an allowable mid-span load on a
-7/8 in skyline at a safety factor of 3, computed by the rigid-link statics of the Forest Service *Skyline
-Tension and Deflection Handbook* and checked against its tables. Sale-level figures cover slope by unit,
+*Cable Logging Systems* guide defines them. Each feasible corridor also carries an allowable load on a 7/8 in skyline at a safety factor of 3 at its
+governing loaded deflection: the mid-span sag of a loaded line that still clears every point of the profile by
+10 ft, the chain method of the Forest Service *Skyline Tension and Deflection Handbook* (PNW-39), with the load
+from the handbook's rigid-link statics checked against its tables. Corridors whose loaded deflection is under 3 %
+carry no payload. Sale-level figures cover slope by unit,
 deflection across all corridors, equipment class, difficulty, an equipment-selection matrix of span against
 chord slope, yarding direction by unit, and payload against span.
 
@@ -91,14 +99,18 @@ chord slope, yarding direction by unit, and payload against span.
 
 A simulated BAF 20 cruise on a 300 ft grid: 798 plots, 8,722 trees, six planted recording errors. The QA
 pass caught all six and raised one further flag. Each unit gets a review sheet with stand density (basal
-area with sampling error, trees per acre, QMD, stand density index against the mixed-conifer maximum),
+area, trees per acre, QMD, stand density index against the mixed-conifer maximum),
 CWHR size and density class, a sawtimber versus biomass split, a leave target at 35 % of the basal-area-weighted
 FVS maximum SDI, a stand table by DBH class, a stock table by species, and a cruise design check with Student's t
 against the FSH 2409.12 standards (40 % per stratum, exhibit 01 for the sale as a whole), a plot map, and the
-findings a crew lead would hand back. Every page carries a SIMULATED DATA watermark, the cruiser code is SIM,
+findings a crew lead would hand back. The sampling error is computed on plot net cubic volume per acre, the
+quantity the handbook's error standards apply to (sec. 41.1(5)(a) and (b)); the basal-area error is retained as
+a secondary figure. Every page carries a SIMULATED DATA watermark, the cruiser code is SIM,
 and the workbook opens with a READ ME sheet saying the same. A sale-level QA page opens the merged review PDF;
-every unit meets the stratum standard, the sale as a whole meets its 10 % standard (placed with the Region 5
-FY2025 sold average of $33.63/MBF), and four units fall short of the Region 5 20-plot practice minimum.
+24 of 24 units meet the 40 % stratum standard on volume (unit errors 4.5 to 22.9 %;
+unit 101 10.4 %), the sale as a whole has a volume sampling error of 2.0 % against its
+10 % standard (meets; placed with the Region 5 FY2025 sold average of $33.63/MBF on
+50,108 MBF over net acres), and four units fall short of the 20-plot local practice, not a handbook standard.
 
 ### Standards followed
 
@@ -113,7 +125,10 @@ throughout. GeoPackage deliverable with layer descriptions and FGDC / ISO 19115 
 by measurement (table in `docs/methods.md`). Cable screen definitions and the downhill-yarding rule from the Forest Service
 *Cable Logging Systems* guide; deflection and tension relationship from the *Best Practice Guidelines for
 Cable Logging* (FITEC). Stream widths from the Sierra Nevada Forest Plan Amendment. Canopy threshold at
-the ASPRS 2 m vegetation boundary. Details and citations in `docs/methods.md`.
+the ASPRS 2 m vegetation boundary. Cruise sampling error computed on net cubic volume per acre and tested
+against the FSH 2409.12 sec. 41.1 volume error standards (40 % per stratum, exhibit 01 for the sale as a whole
+on net acres), with the basal-area error retained as a secondary figure; the 20-plot count is a local practice,
+not a handbook standard. Details and citations in `docs/methods.md`.
 
 ## Outputs
 
@@ -192,8 +207,8 @@ Read the outputs with these in mind.
   computations on made-up data.
 - **The cable screen is a screen.** A straight chord from a 50 ft tower to a 10 ft anchor with a clearance and
   deflection test sorts corridors; the payload figure is the handbook's rigid-link planning estimate at the
-  available deflection, with no catenary, carriage weight, multispan or intermediate-support analysis. It
-  ranks settings; it does not size a yarder.
+  chain-clearance loaded deflection (10 ft clearance, project assumption), with no catenary, carriage weight,
+  multispan or intermediate-support analysis. It ranks settings; it does not size a yarder.
 - **The unit rules are a demonstration method.** Splitting large regions by k-means on position, elevation
   and aspect is a rule written for this project to imitate how a layout forester follows ridges and draws;
   it is not an established industry procedure.

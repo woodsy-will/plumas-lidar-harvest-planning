@@ -4,10 +4,12 @@ For each unit: candidate landings sampled every 200 ft along NFS and Census TIGE
 unit (nearest road points up to 2,000 ft as a fallback), corridors cast every 5 degrees (10 on tractor units)
 from each landing to a tailhold 100 ft past the far boundary, DTM profiles every 10 ft, chord geometry for a
 50 ft tower (70 ft alternative) and a 10 ft tailhold anchor. Feasible when the ground stays 10 ft or more
-below the chord and mid-span deflection is at least 6 % of span. See docs/methods.md.
+below the chord and mid-span deflection is at least 6 % of span. Each corridor also carries a LOADED deflection
+(PNW-39 chain clearance, see loaded_deflection()) and payload_ok = loaded deflection at least 3 %; payload_ok does
+not enter `feasible`, so the feasibility counts stay comparable with earlier runs. See docs/methods.md.
 
 Outputs
-  data/work/cable.gpkg          landings, corridors (all, with feasibility attributes)
+  data/work/cable.gpkg          landings, corridors (all, with feasibility, loaded-deflection and payload_ok attributes)
   output/cable/unit_summary.csv one row per unit
 Profiles, route tables, corridor maps and the sale-level figures are drawn by 04b_cable_figures.py.
 Run: python-qgis-ltr.bat scripts/04_cable_analysis.py
@@ -28,6 +30,8 @@ os.makedirs(OUT, exist_ok=True)
 
 TOWER = 50.0; TOWER_ALT = 70.0; ANCHOR = 10.0
 MIN_CLEAR = 10.0; MIN_DEFLECTION = 0.06
+CLEAR_LOAD = 10.0            # ft the loaded skyline must clear the ground: carriage plus a partially suspended log (assumption of this project)
+MIN_LOADED_DEFLECTION = 0.03 # loaded deflection below this carries no useful payload; sets payload_ok, not feasible
 STEP = 10.0; BEARING_STEP = 5; LANDING_SPACING = 200.0; LANDING_REACH = 500.0; TAILHOLD_PAST = 100.0
 FALLBACK_REACH = 2000.0      # a unit with no road within LANDING_REACH is served from its nearest road points
 LATERAL = 150.0              # lateral yarding each side of a corridor
@@ -71,6 +75,33 @@ def road_points():
     return pts
 
 
+def loaded_deflection(d, clearance, span, clear_load=CLEAR_LOAD):
+    """Allowable LOADED mid-span deflection as a fraction of horizontal span, and the profile distance that governs it.
+
+    PNW-39 (Lysons and Mann 1967, pp. 9-10) finds the allowable loaded deflection with a chain of fixed length hung
+    between the supports: the clearance needed for carriage, chokers, logs and ground is first subtracted from the
+    support heights, a weight standing for the carriage and load is walked along the span, the chain is let out
+    until the loaded line just clears the ground at the critical point, and the deflection is then measured at
+    mid-span. That is a search over the whole profile, not the chord-to-ground height at mid-span. Here the loaded
+    skyline is the parabola sag(x) = 4 y (x/L)(1 - x/L) below the chord (the shape of a uniformly loaded rope, the
+    usual planning approximation to the catenary) and the largest sag y that keeps at least `clear_load` ft between
+    the line and the ground at every interior profile point is
+        y = min over 0 < x < L of (clearance(x) - clear_load) / (4 (x/L)(1 - x/L)),
+    floored at 0. CLEAR_LOAD = 10 ft is an assumption of this project: about 4 ft of carriage and rigging plus the
+    leading end of a partially suspended log; the handbook leaves the figure to the planner. The tower height is
+    already in the chord (z_tower), so it is not subtracted again.
+
+    d: profile distances from the landing, ft (d[0] = 0, d[-1] = span); clearance: chord minus ground at each d, ft.
+    Returns (y / span, governing x in ft); (0, x) when the chord itself is within clear_load of the ground somewhere."""
+    d = np.asarray(d, dtype=float); clearance = np.asarray(clearance, dtype=float)
+    if len(d) < 3:
+        return 0.0, float(span) / 2
+    u = d[1:-1] / span
+    ratio = (clearance[1:-1] - clear_load) / (4 * u * (1 - u))
+    i = int(np.argmin(ratio))
+    return max(0.0, float(ratio[i]) / span), float(d[1:-1][i])
+
+
 def analyse_corridor(x0, y0, x1, y1, tower):
     """Profile from landing (x0,y0) to tailhold (x1,y1). Returns dict or None."""
     span = math.hypot(x1 - x0, y1 - y0)
@@ -85,10 +116,13 @@ def analyse_corridor(x0, y0, x1, y1, tower):
     deflection = clearance[mid] / span
     min_clear = float(clearance[1:-1].min()) if n > 2 else float(clearance.min())
     feasible = bool(min_clear >= MIN_CLEAR and deflection >= MIN_DEFLECTION)
+    ldefl, govern_x = loaded_deflection(d, clearance, span)          # PNW-39 chain clearance; does not enter `feasible`
+    payload_ok = bool(ldefl >= MIN_LOADED_DEFLECTION)
     grade = (z[-1] - z[0]) / span * 100          # chord slope: positive = tailhold above the landing = downhill yarding to the landing
     seg_slope = np.abs(np.diff(z)) / STEP * 100
     span_class = next(lbl for lim, lbl in SPAN_CLASSES if span <= lim)
     return dict(span=span, deflection=float(deflection), min_clear=min_clear, feasible=feasible, grade=float(grade),
+                loaded_deflection=ldefl, govern_x=govern_x, payload_ok=payload_ok,
                 downhill=bool(z[-1] > z[0]),    # tailhold higher than landing: logs come downhill to the landing
                 max_slope=float(seg_slope.max()), mean_slope=float(seg_slope.mean()), span_class=span_class,
                 d=d, z=z, chord=chord, clearance=clearance, x=xs, y=ys)
@@ -131,7 +165,7 @@ L = cds.CreateLayer("landings", sp, ogr.wkbPoint)
 for n, t in (("unit_id", ogr.OFTInteger), ("landing_id", ogr.OFTInteger), ("elev", ogr.OFTReal), ("corridors_ok", ogr.OFTInteger), ("coverage_pct", ogr.OFTReal)):
     L.CreateField(ogr.FieldDefn(n, t))
 C = cds.CreateLayer("corridors", sp, ogr.wkbLineString)
-for n, t in (("unit_id", ogr.OFTInteger), ("landing_id", ogr.OFTInteger), ("bearing", ogr.OFTInteger), ("span_ft", ogr.OFTReal), ("deflection_pct", ogr.OFTReal), ("min_clear_ft", ogr.OFTReal), ("feasible", ogr.OFTInteger), ("feasible_70ft", ogr.OFTInteger), ("downhill", ogr.OFTInteger), ("max_slope_pct", ogr.OFTReal), ("span_class", ogr.OFTString)):
+for n, t in (("unit_id", ogr.OFTInteger), ("landing_id", ogr.OFTInteger), ("bearing", ogr.OFTInteger), ("span_ft", ogr.OFTReal), ("deflection_pct", ogr.OFTReal), ("loaded_deflection_pct", ogr.OFTReal), ("govern_x_ft", ogr.OFTReal), ("payload_ok", ogr.OFTInteger), ("min_clear_ft", ogr.OFTReal), ("feasible", ogr.OFTInteger), ("feasible_70ft", ogr.OFTInteger), ("downhill", ogr.OFTInteger), ("max_slope_pct", ogr.OFTReal), ("span_class", ogr.OFTString)):
     C.CreateField(ogr.FieldDefn(n, t))
 
 summary = []
@@ -161,7 +195,7 @@ for attrs, g in unit_geoms():
             r.update(unit_id=uid, landing_id=li, bearing=b, x0=x0, y0=y0, x1=x1, y1=y1, feasible_70=bool(r70 and r70["feasible"]))
             corr.append(r); ok += r["feasible"]
             f = ogr.Feature(C.GetLayerDefn()); ln = ogr.Geometry(ogr.wkbLineString); ln.AddPoint_2D(x0, y0); ln.AddPoint_2D(x1, y1); f.SetGeometry(ln)
-            for k, v in (("unit_id", uid), ("landing_id", li), ("bearing", b), ("span_ft", round(r["span"])), ("deflection_pct", round(r["deflection"] * 100, 1)), ("min_clear_ft", round(r["min_clear"], 1)), ("feasible", int(r["feasible"])), ("feasible_70ft", int(r["feasible_70"])), ("downhill", int(r["downhill"])), ("max_slope_pct", round(r["max_slope"], 1)), ("span_class", r["span_class"])):
+            for k, v in (("unit_id", uid), ("landing_id", li), ("bearing", b), ("span_ft", round(r["span"])), ("deflection_pct", round(r["deflection"] * 100, 1)), ("loaded_deflection_pct", round(r["loaded_deflection"] * 100, 1)), ("govern_x_ft", round(r["govern_x"])), ("payload_ok", int(r["payload_ok"])), ("min_clear_ft", round(r["min_clear"], 1)), ("feasible", int(r["feasible"])), ("feasible_70ft", int(r["feasible_70"])), ("downhill", int(r["downhill"])), ("max_slope_pct", round(r["max_slope"], 1)), ("span_class", r["span_class"])):
                 f.SetField(k, v)
             C.CreateFeature(f)
         # coverage from this landing
@@ -203,7 +237,8 @@ for attrs, g in unit_geoms():
     score += 1 if downhill_share > 50 else 0
     difficulty = ["Standard", "Standard", "Moderate", "Moderate", "High", "High", "High", "High"][min(score, 7)]
     row = dict(unit_id=uid, method=attrs["method"], acres=round(attrs["acres"], 1), slope_mean=round(attrs["slope_mean"], 1), landings=len(lands), landings_used=len(chosen),
-               corridors=len(corr), corridors_feasible=len(feas), corridors_feasible_70ft=sum(r["feasible_70"] for r in corr), coverage_pct=round(coverage, 1),
+               corridors=len(corr), corridors_feasible=len(feas), corridors_feasible_70ft=sum(r["feasible_70"] for r in corr),
+               corridors_payload_ok=sum(1 for r in feas if r["payload_ok"]), coverage_pct=round(coverage, 1),
                mean_deflection_pct=round(mean_defl, 1), downhill_share_pct=round(downhill_share, 1), max_feasible_span_ft=round(max_span), equipment=span_class,
                difficulty=difficulty, chosen_landings=" ".join(map(str, chosen)))
     summary.append(row); print(f"unit {uid} {attrs['method']:13s} {attrs['acres']:6.1f} ac | landings {len(lands):2d} | corridors {len(corr):4d} feasible {len(feas):4d} | coverage {coverage:5.1f} % | {span_class} | {difficulty}", flush=True)
