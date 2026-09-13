@@ -1,16 +1,16 @@
 # Mohawk Valley West Slope: LiDAR-based harvest-unit planning
 
-A self-directed rebuild, on public data only, of the harvest-planning workflows I ran as a Forester III on the
-Plumas National Forest Community Protection Project: LiDAR terrain and canopy products, harvest-unit layout,
-cable-yarding feasibility, an 11x17 unit map series, and field-data quality review sheets.
+Harvest-unit planning on 1,816 acres of the Community Protection treatment block on the Plumas National Forest,
+west slope of Mohawk Valley, from USGS 3DEP LiDAR flown in 2018 and public vector data. Products: terrain and
+canopy rasters, 24 demonstration units, a cable-yarding screen, an 11x17 unit map series, and field-data review
+sheets for a simulated cruise. The workflow is the one I ran as a Forester III on the Plumas National Forest
+Community Protection Project, rebuilt here on public data.
 
-**Framing, stated plainly.** I did this kind of work for a contractor on federal timber sales in this
-landscape. The deliverables from that work belong to the contractor and the Forest Service, so none of them
-appear here. Everything in this repository was written from scratch and computed from public sources.
-The harvest units are demonstration polygons delineated by the documented rules in `docs/methods.md`;
-they are not a Forest Service proposal, and no field verification has been done.
+I did this kind of work for a contractor on federal timber sales in this landscape. Those deliverables belong to
+the contractor and the Forest Service and none of them appear here. Every number here was computed from public sources by the scripts in `scripts/`. The units are demonstration polygons drawn by the rules in
+`docs/methods.md`. They are not a Forest Service proposal. No field verification has been done.
 
-**Interactive map:** https://woodsy-will.github.io/projects/plumas-lidar-harvest-planning/map/ (units, skyline corridors, landings, exclusion zones, yarding class and simulated plots, on USGS basemaps).
+Interactive map: https://woodsy-will.github.io/projects/plumas-lidar-harvest-planning/map/ (units, skyline corridors, landings, exclusion zones, yarding class and simulated plots, on USGS basemaps).
 
 ![Unit 404 sheet: LiDAR hillshade with yarding-class tints, cased unit outlines, stream exclusion zones, skyline corridors from four landings, legend and unit panel](output/previews/map_Unit_404.jpg)
 
@@ -22,7 +22,7 @@ they are not a Forest Service proposal, and no field verification has been done.
 
 The Community Protection (Central and West Slope, decision signed 2025) treatment block on National Forest
 land nearest Whitehawk Ranch, Clio, California: 1,816 acres on the west slope of Mohawk Valley, buffered
-300 m for terrain context. The selection rule is deterministic in `scripts/01_get_data.py`.
+300 m for terrain context. The selection rule is written into `scripts/01_get_data.py` and picks the same block every run.
 
 ## Public inputs
 
@@ -48,25 +48,24 @@ land nearest Whitehawk Ranch, Clio, California: 1,816 acres on the west slope of
 | Canopy cover, mean | 79 % |
 | Canopy height, 95th percentile | 105 ft |
 
-A raw 3 ft slope surface under this canopy averages 87 %, which is interpolation noise, not terrain. The
-planning slope is computed from a smoothed DTM and averaged over 99 ft; that distinction decides every
-yarding class in the project.
+The raw 3 ft slope surface under this canopy averages 87 %. That is interpolation noise. Yarding class is
+taken from the planning slope, a smoothed DTM averaged over 99 ft.
 
 ### Harvest units
 
-24 demonstration units on 1,621 gross acres inside the 1,816-acre block; 1,407 net acres after the stream equipment exclusion zones.
+24 demonstration units on 1,621 gross acres inside the 1,816-acre block; 1,408 net acres after the stream equipment exclusion zones.
 
 | Method | Units | Acres | Mean slope |
 |---|---|---|---|
 | Tractor | 18 | 1,390 | 10 to 24 % |
 | Cable | 6 | 231 | 42 to 54 % |
 
-Units are 30 to 116 acres, split along ridges and draws, with stream equipment-exclusion zones kept inside
-the boundary as an internal restriction and netted out of treatable acres.
+Units run 30 to 116 acres and are split along ridges and draws. Stream equipment exclusion zones stay inside
+the unit boundary as an internal restriction and are netted out of treatable acres.
 
 ### Cable-yarding screen
 
-8,540 corridors were cast from 314 candidate landings on the 240 road points within reach of a unit, drawn from 940 road points sampled every 200 ft. For the six cable units:
+940 road points were sampled every 200 ft. 240 of them lie within reach of a unit and gave 314 candidate landings, from which 8,540 corridors were cast. For the six cable units:
 
 | Unit | Acres | Feasible corridors | Coverage | Equipment class | Difficulty | Corridors with a credited payload | Allowable load, best corridor |
 |---|---|---|---|---|---|---|---|
@@ -77,65 +76,75 @@ the boundary as an internal restriction and netted out of treatable acres.
 | 405 | 43 | 261 of 1,464 | 42 % | medium yarder | Moderate | 216 | 9,645 lb |
 | 406 | 35 | 9 of 41 | 70 % | long-span yarder | Moderate | 0 | none: every feasible corridor has under 3 % loaded deflection |
 
-A corridor is *feasible* when the straight chord clears the ground by 10 ft and its unloaded mid-span deflection is at
-least 6 %. It is *credited with a payload* only when the loaded line, sagging as a parabola, still clears every point of
+A corridor is feasible when the straight chord clears the ground by 10 ft and unloaded mid-span deflection is at
+least 6 %. It is credited with a payload only when the loaded line, sagging as a parabola, still clears every point of
 the profile by 10 ft at a mid-span deflection of at least 3 % (PNW-39 chain method). The allowable load is the
 7/8 in skyline's working load at that governing loaded deflection, for the highest-payload corridor from the selected
-landings; unit 406's corridors pass the chord test but not the loaded-line test.
+landings. Unit 406's corridors pass the chord test and fail the loaded-line test.
 
-The same screen runs on the tractor units as a check; their results are reported on the sheets as what
-would happen if cable were required. Each unit also gets a profile sheet (best corridor from each selected
-landing, with chord, mid-span deflection and minimum clearance drawn), and, where any corridor is feasible, a route table of distinct settings
-with chord slope and yarding direction, and external and average yarding distances as the Forest Service
-*Cable Logging Systems* guide defines them. Each feasible corridor also carries an allowable load on a 7/8 in skyline at a safety factor of 3 at its
-governing loaded deflection: the mid-span sag of a loaded line that still clears every point of the profile by
-10 ft, the chain method of the Forest Service *Skyline Tension and Deflection Handbook* (PNW-39), with the load
-from the handbook's rigid-link statics checked against its tables. Corridors whose loaded deflection is under 3 %
-carry no payload. Sale-level figures cover slope by unit,
-deflection across all corridors, equipment class, difficulty, an equipment-selection matrix of span against
-chord slope, yarding direction by unit, and payload against span.
+The same screen runs on the tractor units as a check. Their sheets report what would happen if cable were
+required. Each unit gets a profile sheet showing the best corridor from each selected landing, with chord,
+mid-span deflection and minimum clearance drawn. Where any corridor is feasible the unit also gets a route
+table of distinct settings with chord slope, yarding direction, and external and average yarding distances
+as the Forest Service *Cable Logging Systems* guide defines them.
+
+Each feasible corridor carries an allowable load on a 7/8 in skyline at a safety factor of 3 at its
+governing loaded deflection. That deflection is the mid-span sag of a loaded line that still clears every point of
+the profile by 10 ft, the chain method of the Forest Service *Skyline Tension and Deflection Handbook* (PNW-39).
+The load comes from the handbook's rigid-link statics, checked against its tables. Corridors whose loaded
+deflection is under 3 % carry no payload.
+
+Sale-level figures cover slope by unit, deflection across all corridors, equipment class, difficulty, an
+equipment-selection matrix of span against chord slope, yarding direction by unit, and payload against span.
 
 ### Field-data review
 
 A simulated BAF 20 cruise on a 300 ft grid: 798 plots, 8,722 trees, six planted recording errors. The QA
-pass caught all six and raised one further flag. Each unit gets a review sheet with stand density (basal
-area, trees per acre, QMD, stand density index against the mixed-conifer maximum),
-CWHR size and density class, a sawtimber versus biomass split, a leave target at 35 % of the basal-area-weighted
-FVS maximum SDI, a stand table by DBH class, a stock table by species, and a cruise design check with Student's t
-against the FSH 2409.12 standards (40 % per stratum, exhibit 01 for the sale as a whole), a plot map, and the
-findings a crew lead would hand back. The sampling error is computed on plot net cubic volume per acre, the
-quantity the handbook's error standards apply to (sec. 41.1(5)(a) and (b)); the basal-area error is retained as
-a secondary figure. Every page carries a SIMULATED DATA watermark, the cruiser code is SIM,
-and the workbook opens with a READ ME sheet saying the same. A sale-level QA page opens the merged review PDF;
-24 of 24 units meet the 40 % stratum standard on volume (unit errors 4.5 to 22.9 %;
-unit 101 10.4 %), the sale as a whole has a volume sampling error of 2.0 % against its
-10 % standard (meets; placed with the Region 5 FY2025 sold average of $33.63/MBF on
-50,108 MBF over net acres), and four units fall short of the 20-plot local practice, not a handbook standard.
+pass caught all six and raised one further flag.
+
+Each unit gets a review sheet. It carries stand density (basal area, trees per acre, QMD, stand density index
+against the mixed-conifer maximum), CWHR size and density class, a sawtimber and biomass split, a leave target
+at 35 % of the basal-area-weighted FVS maximum SDI, a stand table by DBH class, a stock table by species, a
+cruise design check with Student's t against the FSH 2409.12 standards (40 % per stratum, exhibit 01 for the
+sale as a whole), a plot map, and the findings a crew lead would hand back. Sampling error is computed on plot
+net cubic volume per acre, the quantity the handbook's error standards apply to (sec. 41.1(5)(a) and (b)). The
+basal-area error is kept as a secondary figure.
+
+Every page carries a SIMULATED DATA watermark, the cruiser code is SIM, and the workbook opens with a READ ME
+sheet saying the same.
+
+A sale-level QA page opens the merged review PDF. 24 of 24 units meet the 40 % stratum standard on volume
+(unit errors 4.5 to 22.9 %; unit 101 10.4 %). The sale as a whole has a volume sampling error of 2.0 %
+against its 10 % standard and meets it; the sale is placed with the Region 5 FY2025 sold average of $33.63/MBF on
+50,108 MBF over net acres. Four units fall short of the 20-plot local practice, which is not a handbook standard.
 
 ### Standards followed
 
-Map layout after Forest Service sale area maps: units colored by yarding method (pale fills with a dashed dark
-outline on the overview, cased outlines on the unit sheets), treatment block boundary,
-streamcourse protection, roads with numbers, 40 ft contours with 200 ft index, PLSS with township and
-range, unit table, 11x17, as vector print PDF (300 dpi rasters) and as GeoPDF for Avenza. Symbology
-reworked against a current Forest Service sale area map, Patterson's relief-shading guidance, Jenny and Kelso's
-color-vision recommendations and USGS topographic conventions (table in `docs/methods.md`). Okabe-Ito color-blind-safe palette
-throughout. GeoPackage deliverable with layer descriptions and FGDC / ISO 19115 summary metadata
-(`docs/data_dictionary.md`). Output checked against print, web, WCAG contrast and color-vision standards
-by measurement (table in `docs/methods.md`). Cable screen definitions and the downhill-yarding rule from the Forest Service
-*Cable Logging Systems* guide; deflection and tension relationship from the *Best Practice Guidelines for
-Cable Logging* (FITEC). Stream widths from the Sierra Nevada Forest Plan Amendment. Canopy threshold at
-the ASPRS 2 m vegetation boundary. Cruise sampling error computed on net cubic volume per acre and tested
-against the FSH 2409.12 sec. 41.1 volume error standards (40 % per stratum, exhibit 01 for the sale as a whole
-on net acres), with the basal-area error retained as a secondary figure; the 20-plot count is a local practice,
-not a handbook standard. Details and citations in `docs/methods.md`.
+Map layout follows Forest Service sale area maps: units colored by yarding method (pale fills with a dashed dark
+outline on the overview, cased outlines on the unit sheets), treatment block boundary, streamcourse protection,
+roads with numbers, 40 ft contours with 200 ft index, PLSS with township and range, unit table, 11x17, as
+vector print PDF (300 dpi rasters) and as GeoPDF for Avenza. Symbology was reworked against a current Forest
+Service sale area map, Patterson's relief-shading guidance, Jenny and Kelso's color-vision recommendations and
+USGS topographic conventions (table in `docs/methods.md`). Okabe-Ito color-blind-safe palette throughout.
+
+GeoPackage deliverable with layer descriptions and FGDC / ISO 19115 summary metadata (`docs/data_dictionary.md`).
+Output was checked by measurement against print, web, WCAG contrast and color-vision standards (table in
+`docs/methods.md`).
+
+Cable screen definitions and the downhill-yarding rule are from the Forest Service *Cable Logging Systems*
+guide; the deflection and tension relationship from the *Best Practice Guidelines for Cable Logging* (FITEC).
+Stream widths from the Sierra Nevada Forest Plan Amendment. Canopy threshold at the ASPRS 2 m vegetation
+boundary. Cruise sampling error is computed on net cubic volume per acre and tested against the FSH 2409.12
+sec. 41.1 volume error standards (40 % per stratum, exhibit 01 for the sale as a whole on net acres), with the
+basal-area error kept as a secondary figure. The 20-plot count is a local practice, not a handbook standard.
+Details and citations in `docs/methods.md`.
 
 ## Outputs
 
-Large deliverables (the merged map series, the GeoPDFs, the individual print sheets, the 300 dpi cable
+The large deliverables (the merged map series, the GeoPDFs, the individual print sheets, the 300 dpi cable
 figures and the packaged rasters) are attached to the
-[v1.0 release](https://github.com/woodsy-will/plumas-lidar-harvest-planning/releases/tag/v1.0) rather than
-kept in git. JPEG previews of everything are in `output/previews`.
+[v1.0 release](https://github.com/woodsy-will/plumas-lidar-harvest-planning/releases/tag/v1.0) and kept
+out of git. JPEG previews of everything are in `output/previews`.
 
 | Folder | Contents |
 |---|---|
@@ -200,26 +209,24 @@ https://github.com/woodsy-will/plumas-lidar-harvest-planning. Contact: through h
 
 ## Limitations
 
-Read the outputs with these in mind.
-
-- **The cruise is simulated.** Every plot and tree is generated from the LiDAR canopy metrics with planted
+- The cruise is simulated. Every plot and tree is generated from the LiDAR canopy metrics with planted
   recording errors, and every review sheet, the workbook and the QA table say so. The statistics are real
   computations on made-up data.
-- **The cable screen is a screen.** A straight chord from a 50 ft tower to a 10 ft anchor with a clearance and
-  deflection test sorts corridors; the payload figure is the handbook's rigid-link planning estimate at the
+- The cable screen is a screen. A straight chord from a 50 ft tower to a 10 ft anchor with a clearance and
+  deflection test sorts corridors. The payload figure is the handbook's rigid-link planning estimate at the
   chain-clearance loaded deflection (10 ft clearance, project assumption), with no catenary, carriage weight,
-  multispan or intermediate-support analysis. It ranks settings; it does not size a yarder.
-- **The unit rules are a demonstration method.** Splitting large regions by k-means on position, elevation
-  and aspect is a rule written for this project to imitate how a layout forester follows ridges and draws;
-  it is not an established industry procedure.
-- **Volumes follow published equations, not a compiler.** Cubic volume uses the PNW-FIA tarif equations by
-  species (MacLean and Berger 1976, as compiled by the California Air Resources Board), board feet the
-  California Scribner ratio of 5.02 per cubic foot of bole wood (Keegan et al. 2010), and biomass the green
+  multispan or intermediate-support analysis. It ranks settings. It does not size a yarder.
+- The unit rules are a demonstration method. Splitting large regions by k-means on position, elevation
+  and aspect is a rule I wrote for this project to imitate how a layout forester follows ridges and draws.
+  It is not an established industry procedure.
+- Volumes follow published equations, with no cruise compiler behind them. Cubic volume uses the PNW-FIA tarif
+  equations by species (MacLean and Berger 1976, as compiled by the California Air Resources Board), board feet
+  the California Scribner ratio of 5.02 per cubic foot of bole wood (Keegan et al. 2010), and biomass the green
   densities of Miles and Smith 2009. The standards sheet in the workbook lists each constant, its source and URL.
-- **Inputs are taken as published.** NHD stream classes drive the exclusion zones and net acres without
-  field verification; Census TIGER roads can include roads that no longer exist on the ground; the LiDAR
+- Inputs are taken as published. NHD stream classes drive the exclusion zones and net acres without
+  field verification. Census TIGER roads can include roads that no longer exist on the ground. The LiDAR
   omits the coarsest octree levels (about 0.5 % of points).
-- **Nothing is field verified**, and the units, corridors and plots must not be used for operations.
+- No field verification. The units, corridors and plots must not be used for operations.
 
 ## What I would do differently
 
@@ -227,7 +234,7 @@ Read the outputs with these in mind.
   final; NHD codes many small draws as perennial here.
 - Add the constraints only the project record supplies: protected activity centers, cultural sites, soils
   and existing skid trails. The units are drawn without them.
-- Design the skyline corridors to actual tailhold trees and intermediate supports rather than a 100 ft
+- Design the skyline corridors to actual tailhold trees and intermediate supports instead of a 100 ft
   offset past the boundary, and cost the landings.
-- Build the units with a crew on the ground. The layout rules here reproduce how a layout forester reads
-  terrain, not the walk that confirms it.
+- Lay the units out with a crew on the ground. The rules here imitate how a layout forester reads
+  terrain. They do not replace the walk that confirms it.

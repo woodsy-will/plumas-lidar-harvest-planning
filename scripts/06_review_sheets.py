@@ -100,19 +100,19 @@ for p in plots:
     seen.setdefault(p["plot"], 0); seen[p["plot"]] += 1
 for pid, c in seen.items():
     if c > 1:
-        flag(pid, f"duplicate plot id recorded {c} times")
+        flag(pid, f"Plot id recorded {c} times. Check plot numbers.")
 for p in plots:
     if not ugeom[p["unit_id"]].Contains(ogr.CreateGeometryFromWkt(f"POINT ({p['x']} {p['y']})")):
-        flag(p["plot"], "plot location falls outside its unit boundary (GPS or unit number error)")
+        flag(p["plot"], "Plot falls outside the unit boundary. Check GPS position and unit number.")
 for t in trees:
     if t["species"] not in SPECIES:
-        flag(t["plot"], f"tree {t['tree']}: unknown species code '{t['species']}'")
+        flag(t["plot"], f"Tree {t['tree']}: species code '{t['species']}' not valid. Correct in edit.")
     if t["dbh"] < 1 or t["dbh"] > 80:
-        flag(t["plot"], f"tree {t['tree']}: DBH {t['dbh']} out of range")
+        flag(t["plot"], f"Tree {t['tree']}: DBH {t['dbh']} out of range. Remeasure.")
     if t["height"] is None:
-        flag(t["plot"], f"tree {t['tree']}: height missing")
+        flag(t["plot"], f"Tree {t['tree']}: height missing. Measure.")
     elif t["dbh"] >= 20 and t["height"] < 40:
-        flag(t["plot"], f"tree {t['tree']}: height {t['height']} ft implausible for DBH {t['dbh']}")
+        flag(t["plot"], f"Tree {t['tree']}: height {t['height']} ft outside tolerance for DBH {t['dbh']}. Remeasure.")
 found = set(flags)
 print(f"QA flagged {len(found)} plots; planted errors caught: {sum(1 for e in planted if e['plot'] in found)} of {len(planted)}")
 
@@ -244,7 +244,7 @@ M = {u["unit_id"]: metrics(u["unit_id"]) for u, g in units}
 # sale as a whole: stratified by unit with gross-area weights, t = 2 (FSH 2409.12 41.1(5)(a): the sale-as-a-whole standard is a
 # volume error; the basal-area figure is kept alongside). Plots sample the gross unit, so per-acre means are weighted by gross
 # acres; sale MBF and value for the exhibit 01 placement use NET acres (gross less stream exclusion zones), gross also reported.
-tot_ac = sum(u["acres"] for u, g in units); tot_net = sum(u["net_acres"] for u, g in units)
+tot_ac = sum(u["acres"] for u, g in units); tot_net = int(round(sum(round(u["net_acres"], 2) for u, g in units), 2) + 0.5)   # half-up, matches the overview sheet
 est = [(u["acres"] / tot_ac, M[u["unit_id"]], u) for u, g in units if M[u["unit_id"]]]
 sale_ba = sum(w * m["ba"] for w, m, u in est); sale_ba_se95 = 2 * math.sqrt(sum(w ** 2 * m["ba_sd"] ** 2 / m["plots"] for w, m, u in est)) / sale_ba * 100
 sale_vol = sum(w * m["cuft"] for w, m, u in est); sale_vol_se95 = 2 * math.sqrt(sum(w ** 2 * m["vol_sd"] ** 2 / m["plots"] for w, m, u in est)) / sale_vol * 100
@@ -398,12 +398,12 @@ def build_page(u, g):
         ax.plot([ring.GetPoint_2D(i)[0] for i in range(ring.GetPointCount())], [ring.GetPoint_2D(i)[1] for i in range(ring.GetPointCount())], color="k", lw=1.2)
     for p in ps:
         bad = p["plot"] in flags; ax.plot(p["x"], p["y"], "o", ms=5, color=("#D55E00" if bad else "#0072B2"), mec="k"); ax.annotate(p["plot"].split("-")[1], (p["x"], p["y"]), fontsize=5, xytext=(3, 3), textcoords="offset points")
-    ax.set_aspect("equal"); ax.set_xticks([]); ax.set_yticks([]); ax.set_title(f"Unit {uid}: plots on the {GRID:.0f} ft grid (orange = QA flag)", fontsize=8)
+    ax.set_aspect("equal"); ax.set_xticks([]); ax.set_yticks([]); ax.set_title(f"Unit {uid} plots, {GRID:.0f} ft grid (orange: QA flag)", fontsize=8)
     for sde in ("top", "right", "left", "bottom"):
         ax.spines[sde].set_visible(True)
     mp = os.path.join(WORK, f"_plotmap_{uid}.png"); fig.tight_layout(); fig.savefig(mp, dpi=200); plt.close(fig)
-    page = [Paragraph(f"Unit {uid} - Field Data Review", H),
-            Paragraph(f"Mohawk Valley West Slope demonstration. Method <b>{u['method']}</b>, {u['acres']:.1f} ac, BAF {BAF:.0f} variable-radius cruise on a {GRID:.0f} ft grid, {m['plots']} plots, {sum(p['n_trees'] for p in ps)} trees tallied. Simulated data with planted recording errors; see docs/methods.md.", B)]
+    page = [Paragraph(f"Unit {uid} Field Data Review", H),
+            Paragraph(f"Mohawk Valley West Slope demonstration. <b>{u['method']}</b> unit, {u['acres']:.1f} ac. {m['plots']} plots, BAF {BAF:.0f}, variable-radius cruise on a {GRID:.0f} ft grid, {sum(p['n_trees'] for p in ps)} trees tallied. Simulated data with planted recording errors; see docs/methods.md.", B)]
     # Table 1: stand summary
     st = [["STAND DENSITY", "", "STAND INFO", ""],
           ["Basal area", f"{m['ba']:.0f} sq ft/ac  (1 SE of mean, BA {m['ba_se_pct']:.1f} %)", "Type", "Sierran mixed conifer"],
@@ -414,17 +414,17 @@ def build_page(u, g):
           ["TPA", f"{m['saw']['tpa']:.0f}", "TPA", f"{m['bio']['tpa']:.0f}"],
           ["Volume", f"{m['saw']['vol'] / 1000 * BF_PER_CF:.1f} MBF/ac  ({m['saw']['vol']:.0f} cu ft)", "Volume", f"{m['bio']['lb'] / 2000:.1f} green tons/ac  ({m['bio']['vol']:.0f} cu ft)"],
           ["TREATMENT TARGET", "", "CRUISE DESIGN", ""],
-          ["Leave", f"{TARGET_SDI_PCT} % of max SDI  =  ~{m['target_ba']:.0f} sq ft/ac BA", "Sampling error (volume)", f"{m['vol_se95']:.1f} % at 95 %  (CV {m['vol_cv']:.0f} %, t = {m['tval']:.2f}, n = {m['plots']})"],
-          ["Species (BA)", ", ".join(f"{s} {b:.0f}" for s, b in m["species"][:5]), "Stratum standard", f"{m['se_std']:.0f} % of volume  -  {'MEETS' if m['meets'] else 'FAILS'};  plots for standard: {m['vol_needed']}"],
-          ["", "", "Sampling error (basal area)", f"{m['ba_se95']:.1f} % at 95 %  (CV {m['ba_cv']:.0f} %);  secondary, not the standard"],
-          ["", "", "Plot count", f"{m['plots']} vs 20-plot local practice, not a handbook standard: {'ok' if m['practice_ok'] else 'SHORT by ' + str(PRACTICE_MIN_PLOTS - m['plots'])}"]]
+          ["Leave", f"{TARGET_SDI_PCT} % of max SDI, about {m['target_ba']:.0f} sq ft/ac BA", "Sampling error (volume)", f"{m['vol_se95']:.1f} % at 95 %  (CV {m['vol_cv']:.0f} %, t = {m['tval']:.2f}, n = {m['plots']})"],
+          ["Species (BA)", ", ".join(f"{s} {b:.0f}" for s, b in m["species"][:5]), "Stratum standard", f"{m['se_std']:.0f} % of volume, {'MEETS' if m['meets'] else 'FAILS'}; plots for standard {m['vol_needed']}"],
+          ["", "", "Sampling error (basal area)", f"{m['ba_se95']:.1f} % at 95 %  (CV {m['ba_cv']:.0f} %); reference, not the standard"],
+          ["", "", "Plot count", f"{m['plots']}; 20-plot local practice, not a handbook standard: {'ok' if m['practice_ok'] else 'SHORT by ' + str(PRACTICE_MIN_PLOTS - m['plots'])}"]]
     t1 = Table(st, colWidths=[1.1 * inch, 1.95 * inch, 1.25 * inch, 2.9 * inch])
     t1.setStyle(tstyle(head_rows=(0, 4, 8), extra=[("BACKGROUND", (0, r0), (0, r1), PALE) for r0, r1 in ((1, 3), (5, 7), (9, 12))] + [("BACKGROUND", (2, r0), (2, r1), PALE) for r0, r1 in ((1, 3), (5, 7), (9, 12))]))
-    page += [Paragraph("Table 1. Stand summary from the BAF 20 cruise, per acre", TT), t1,
-             Paragraph(f"Cubic volume = total-stem CVTS by species (PNW-FIA California equations, MacLean and Berger 1976, CARB 2011 compendium) net of defect; Scribner board feet at {BF_PER_CF} bf/cu ft (Keegan et al. 2010, table 2, California 2000-2006); "
-                       f"green tons at " + ", ".join(f"{k} {v:.0f}" for k, v in GREEN_LB_PER_CF.items()) + " lb/cu ft of wood (Miles and Smith 2009, NRS-38 table 1A). SDI in the summation form; maximum is the basal-area-weighted FVS Western Sierra species maximum (table 3.5.1, rev. 2025-09-23). "
-                       f"The Keegan ratio is Scribner log scale per cubic foot of delivered sawlog fiber, so applied to total-stem CVTS it overstates sawlog volume; merchantable cubic volume would be the consistent pairing. "
-                       f"Sampling error at 95 % confidence with Student's t on plot net cubic volume per acre, the quantity the handbook standards apply to (FSH 2409.12 ch. 40, 41.1(5)(a) and (b)); stratum standard {STRATUM_STD:.0f} % of volume for tree-measurement sales; the basal-area error is secondary. Stand-summary BA counts every tallied tree (plot count x BAF); the stand and stock tables exclude records flagged by QA, such as an out-of-range DBH, so the two can differ by a few tenths. Sources and URLs: cruise_data.xlsx, Standards and assumptions.", FN)]
+    page += [Paragraph("TABLE 1. STAND SUMMARY, BAF 20 CRUISE, PER ACRE", TT), t1,
+             Paragraph(f"Cubic volume is total-stem CVTS by species (PNW-FIA California equations, MacLean and Berger 1976, CARB 2011 compendium), net of defect. Scribner board feet at {BF_PER_CF} bf/cu ft (Keegan et al. 2010, table 2, California 2000-2006). "
+                       f"Green tons at " + ", ".join(f"{k} {v:.0f}" for k, v in GREEN_LB_PER_CF.items()) + " lb/cu ft of wood (Miles and Smith 2009, NRS-38 table 1A). SDI in the summation form; maximum is the basal-area-weighted FVS Western Sierra species maximum (table 3.5.1, rev. 2025-09-23). "
+                       f"The Keegan ratio is Scribner log scale per cubic foot of delivered sawlog fiber; applied to total-stem CVTS it overstates sawlog volume. Merchantable cubic volume is the consistent pairing. "
+                       f"Sampling error at 95 % confidence, Student's t, on plot net cubic volume per acre, the quantity the handbook standards test (FSH 2409.12 ch. 40, 41.1(5)(a) and (b)); stratum standard {STRATUM_STD:.0f} % of volume for tree-measurement sales. The basal-area error is reference only. Stand-summary BA counts every tallied tree (plot count x BAF); the stand and stock tables drop records flagged by QA, such as an out-of-range DBH, so the two can differ by a few tenths. Sources and URLs: cruise_data.xlsx, Standards and assumptions.", FN)]
     # Table 2: stand table by DBH class; Table 3: stock table by species, side by side
     rows2 = [["DBH class, in", "Trees", "TPA", "BA", "cu ft", "MBF"]] + [[f"{k}-{k + DBH_CLASS - 1:.0f}.9", c["n"], f"{c['tpa']:.1f}", f"{c['ba']:.1f}", f"{c['vol']:.0f}", f"{c['vol'] / 1000 * BF_PER_CF:.1f}"] for k, c in sorted(m["cls_stat"].items())]
     rows2.append(["All", sum(c["n"] for c in m["cls_stat"].values()), f"{m['tpa']:.1f}", f"{m['ba']:.1f}", f"{m['cuft']:.0f}", f"{m['mbf']:.1f}"])
@@ -432,17 +432,17 @@ def build_page(u, g):
     rows3 = [["Species", "Trees", "TPA", "BA", "QMD", "cu ft", "MBF"]] + [[k, s["n"], f"{s['tpa']:.1f}", f"{s['ba']:.1f}", f"{s['qmd']:.1f}", f"{s['vol']:.0f}", f"{s['vol'] / 1000 * BF_PER_CF:.1f}"] for k, s in sorted(m["sp_stat"].items(), key=lambda x: -x[1]["ba"])]
     rows3.append(["All", sum(s["n"] for s in m["sp_stat"].values()), f"{m['tpa']:.1f}", f"{m['ba']:.1f}", f"{m['qmd']:.1f}", f"{m['cuft']:.0f}", f"{m['mbf']:.1f}"])
     t3 = Table(rows3, colWidths=[0.7 * inch, 0.5 * inch, 0.5 * inch, 0.5 * inch, 0.5 * inch, 0.55 * inch, 0.5 * inch]); t3.setStyle(tstyle(extra=[("ALIGN", (1, 0), (-1, -1), "RIGHT"), ("FONTNAME", (0, -1), (-1, -1), FONT_B), ("LINEABOVE", (0, -1), (-1, -1), 0.4, colors.black)]))
-    side = Table([[[Paragraph(f"Table 2. Stand table by {DBH_CLASS}-inch DBH class, per acre", TT), t2], [Paragraph("Table 3. Stock table by species, per acre", TT), t3]]], colWidths=[3.6 * inch, 3.7 * inch])
+    side = Table([[[Paragraph(f"TABLE 2. STAND TABLE BY {DBH_CLASS}-INCH DBH CLASS, PER ACRE", TT), t2], [Paragraph("TABLE 3. STOCK TABLE BY SPECIES, PER ACRE", TT), t3]]], colWidths=[3.6 * inch, 3.7 * inch])
     side.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 4)]))
-    page += [side, Paragraph("Trees = trees tallied in the cruise; TPA, BA (sq ft/ac), cubic feet and Scribner MBF per acre by BAF expansion. Species: PP ponderosa pine, WF white fir, DF Douglas-fir, SP sugar pine, IC incense-cedar.", FN)]
+    page += [side, Paragraph("Trees: tally trees. TPA, BA (sq ft/ac), cubic feet and Scribner MBF per acre by BAF expansion. Species codes: PP ponderosa pine, WF white fir, DF Douglas-fir, SP sugar pine, IC incense-cedar.", FN)]
     page += [Spacer(1, 4), Image(mp, width=4.2 * inch, height=3.2 * inch), Paragraph("Figure 1. Plot locations with QA status.", FN), Spacer(1, 4)]
     fl = list(dict.fromkeys((p["plot"], f) for p in ps for f in flags.get(p["plot"], [])))
-    page.append(Paragraph("<b>QA findings</b>: " + (f"{len(fl)} item(s) need crew follow-up" if fl else "no issues found; unit accepted") + ("" if m["meets"] else "; volume sampling error exceeds the stratum standard") + ("" if m["practice_ok"] else f"; {PRACTICE_MIN_PLOTS - m['plots']} more plots would meet the 20-plot local practice, not a handbook standard"), B))
+    page.append(Paragraph("<b>QA findings</b>: " + (f"{len(fl)} item(s) for crew follow-up" if fl else "none; unit accepted") + ("" if m["meets"] else "; volume sampling error exceeds the stratum standard") + ("" if m["practice_ok"] else f"; {PRACTICE_MIN_PLOTS - m['plots']} more plots to meet the 20-plot local practice"), B))
     if fl:
         ft = Table([["Plot", "Finding"]] + fl, colWidths=[0.9 * inch, 6.3 * inch]); ft.setStyle(tstyle(extra=[("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f6e0dc"))])); page.append(ft)
     rows = [["Plot", "Trees in", "BA sq ft/ac", "Slope %", "Status"]] + [[p["plot"], p["n_trees"], f"{p['n_trees'] * BAF:.0f}", p["slope"], "FLAG" if p["plot"] in flags else "ok"] for p in ps]
     pt = Table(rows, colWidths=[0.9 * inch, 0.9 * inch, 1.1 * inch, 0.8 * inch, 0.8 * inch], repeatRows=1); pt.setStyle(tstyle(extra=[("ALIGN", (1, 0), (3, -1), "RIGHT")]))
-    page += [Spacer(1, 6), KeepTogether([Paragraph("Table 4. Plot list", TT), pt])]
+    page += [Spacer(1, 6), KeepTogether([Paragraph("TABLE 4. PLOT LIST", TT), pt])]
     return page
 
 
@@ -462,16 +462,16 @@ for u, g in units:
     qa_rows.append([u["unit_id"], u["method"], f"{u['acres']:.0f}", m["plots"], f"{m['cuft']:.0f}", f"{m['vol_cv']:.0f}", f"{m['vol_se95']:.1f}", f"{m['ba']:.0f}", f"{m['ba_cv']:.0f}", f"{m['ba_se95']:.1f}", f"{m['tval']:.2f}", f"{m['se_std']:.0f}",
                     "meets" if m["meets"] else "fails", "ok" if m["practice_ok"] else "short", nf, "accepted" if (nf == 0 and m["meets"]) else "follow-up"])
 qt = Table(qa_rows, repeatRows=1); qt.setStyle(tstyle(size=7.5, extra=[("ALIGN", (2, 0), (-2, -1), "RIGHT")] + [("BACKGROUND", (0, i), (-1, i), colors.HexColor("#fbe9e2")) for i, r in enumerate(qa_rows) if i and r[-1] == "follow-up"]))
-front = [Paragraph("Field Data Review - Sale-level QA summary", H),
+front = [Paragraph("Field Data Review, Sale-level QA Summary", H),
          Paragraph(f"Mohawk Valley West Slope demonstration. {len(plots)} plots, {len(trees)} trees, BAF {BAF:.0f} on a {GRID:.0f} ft grid across {len(units)} units ({tot_ac:,.0f} gross ac, {tot_net:,.0f} net ac after stream exclusion zones). "
-                   f"<b>Sale as a whole</b> (stratified by unit, area weights, t = 2): net cubic volume {sale_vol:,.0f} cu ft/ac with a sampling error of {sale_vol_se95:.1f} % at 95 % confidence (basal area {sale_ba:.0f} sq ft/ac, {sale_ba_se95:.1f} %, secondary) "
-                   f"against the exhibit 01 volume error standard of {sale_std} % for a tree-measurement sale valued at about ${sale_value:,.0f} on net acres ({sale_mbf:,.0f} MBF at ${STUMPAGE_PER_MBF:.2f}/MBF, the Region 5 FY2025 average sold value from the Forest Service Cut and Sold report; "
+                   f"<b>Sale as a whole</b> (stratified by unit, area weights, t = 2): net cubic volume {sale_vol:,.0f} cu ft/ac, sampling error {sale_vol_se95:.1f} % at 95 % confidence (basal area {sale_ba:.0f} sq ft/ac, {sale_ba_se95:.1f} %, reference only). "
+                   f"Exhibit 01 volume error standard {sale_std} % for a tree-measurement sale valued at about ${sale_value:,.0f} on net acres ({sale_mbf:,.0f} MBF at ${STUMPAGE_PER_MBF:.2f}/MBF, the Region 5 FY2025 average sold value, Forest Service Cut and Sold report; "
                    f"{sale_mbf_gross:,.0f} MBF, ${sale_value_gross:,.0f} on gross acres): <b>{'MEETS' if sale_meets else 'FAILS'}</b>. "
-                   f"<b>Strata</b>: each unit's volume sampling error is tested against the {STRATUM_STD:.0f} % stratum volume error standard for tree-measurement sales (FSH 2409.12 ch. 40, sec. 41.1(5)(b)); the basal-area error is listed for reference; the 20-plot column reports the 20-plot local practice, not a handbook standard. "
-                   f"QA flags are plots that failed a record check; {len(found)} flagged, {sum(1 for e in planted if e['plot'] in found)} of {len(planted)} planted errors caught.", B), Spacer(1, 8),
-         Paragraph("Table A. Cruise statistics and QA status by unit (stratum)", TT), qt,
-         Paragraph("cu ft/ac = net cubic volume per acre (CVTS net of defect); vol_cv, ba_cv = coefficient of variation (%) of plot volume and plot basal area; vol_se95, ba_se95 = sampling error (%) = t x standard error / mean at 95 % confidence, t = Student's t on n-1 df; "
-                   "Std % = stratum volume error standard; Design = vol_se95 against Std %; BA in sq ft/ac.", FN), PageBreak()]
+                   f"<b>Strata</b>: each unit's volume sampling error is tested against the {STRATUM_STD:.0f} % stratum volume error standard for tree-measurement sales (FSH 2409.12 ch. 40, sec. 41.1(5)(b)). The basal-area error is listed for reference. The 20-plot column reports the 20-plot local practice, not a handbook standard. "
+                   f"QA flags are plots that failed a record check: {len(found)} flagged, {sum(1 for e in planted if e['plot'] in found)} of {len(planted)} planted errors caught.", B), Spacer(1, 8),
+         Paragraph("TABLE A. CRUISE STATISTICS AND QA STATUS BY UNIT (STRATUM)", TT), qt,
+         Paragraph("cu ft/ac: net cubic volume per acre (CVTS net of defect). vol_cv, ba_cv: coefficient of variation (%) of plot volume and plot basal area. vol_se95, ba_se95: sampling error (%), t x standard error / mean at 95 % confidence, Student's t on n-1 df. "
+                   "Std %: stratum volume error standard. Design: vol_se95 against Std %. BA in sq ft/ac.", FN), PageBreak()]
 merged.build(front + story, onFirstPage=watermark, onLaterPages=watermark)
 csv_rows = [qa_rows[0] + ["data"]] + [r + ["simulated"] for r in qa_rows[1:]]      # data column marks every row as simulated
 open(os.path.join(OUT, "qa_summary.csv"), "w", newline="").write("\n".join(",".join(str(c) for c in r) for r in csv_rows) + "\n")

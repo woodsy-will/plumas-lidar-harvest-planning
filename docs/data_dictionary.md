@@ -3,7 +3,7 @@
 Distributable package: `output/gis/mohawk_west_slope.gpkg` (vectors, one GeoPackage) plus four GeoTIFFs,
 written by `scripts/08_package_gis.py`. The same layers exist in the working files `data/work/planning.gpkg`,
 `data/work/cable.gpkg` and `data/work/cruise_plots.gpkg`. Every layer carries its description in
-`gpkg_contents`, and the `project_metadata` table in the package holds the summary below.
+`gpkg_contents`. The `project_metadata` table in the package holds the summary below.
 
 ## Project metadata (FGDC / ISO 19115 summary fields)
 
@@ -16,7 +16,7 @@ written by `scripts/08_package_gis.py`. The same layers exist in the working fil
 | Spatial reference | EPSG:2226, NAD83 / California zone 2, US survey feet; heights in feet |
 | LiDAR | USGS 3DEP CA_NoCAL_Wildfires_PlumasNF_B2_2018, QL1, flown 2018, read from the USGS Entwine copy; about 650 million points over 3,948 ac |
 | Vector sources | USFS EDW Activity Project Areas and Road Core; BLM Surface Management Agency and CadNSDI PLSS; USGS NHD at 1:24,000; Census TIGER roads; all downloaded September 2026 |
-| Accuracy | DTM at 3 ft cells from class 2 returns; planning slope from a 15 ft smoothed DTM averaged over 99 ft. Unit boundaries are model output, not surveyed lines. NHD stream classes are unverified |
+| Accuracy | DTM at 3 ft cells from class 2 returns; planning slope from a 15 ft smoothed DTM averaged over 99 ft. Unit boundaries are model output and are not surveyed lines. NHD stream classes are unverified |
 | Lineage | scripts 01 to 08 in this repository; rules and thresholds in `docs/methods.md` |
 | Constraints | Public-domain inputs. Units, corridors and plots are demonstration products and must not be used for operations |
 
@@ -92,12 +92,12 @@ Operable ground before splitting; `v` = 1. Kept so a reviewer can see what the u
 | payload_ok | int | 1 when loaded deflection >= 3 %, the minimum credited with a payload |
 
 The payload estimate (allowable load at the governing loaded deflection for a 7/8 in skyline, methods.md item 7) is
-computed in `04b_cable_figures.py` from span_ft, loaded_deflection_pct and the chord slope; it is not stored in the GeoPackage and
-appears on the route tables, the profile sheets, Fig 7 and `unit_summary.csv`.
+computed in `04b_cable_figures.py` from span_ft, loaded_deflection_pct and the chord slope. It is not stored in the GeoPackage.
+It appears on the route tables, the profile sheets, Fig 7 and `unit_summary.csv`.
 
 ### plots (Point, 798 features)
 
-Simulated cruise plots; the tree records are in `output/review/cruise_data.xlsx`.
+Simulated cruise plots. The tree records are in `output/review/cruise_data.xlsx`.
 
 | Field | Type | Meaning |
 |---|---|---|
@@ -137,15 +137,14 @@ dominant height, each with title, legend or color ramp, one-mile scale bar, nort
 
 - `output/cable/unit_summary.csv`: one row per unit from the cable screen: corridors cast and feasible,
   coverage, mean deflection, equipment class, difficulty, chosen landings, downhill share, EYD, AYD, uphill
-  share, and two payload columns from `04b_cable_figures.py`: `max_payload_lb`, the largest allowable load (lb,
+  share, and two payload columns from `04b_cable_figures.py`. `max_payload_lb` is the largest allowable load (lb,
   carriage plus logs, 7/8 in extra-improved plow-steel skyline at a safe working load of 26.5 kips, at the
   governing loaded deflection by the PNW-39 chain method with 10 ft clearance) among the unit's feasible corridors
-  with loaded deflection of at least 3 %, and `payload_at_best_lb`, the same for the highest-payload corridor from
-  the selected landings; both blank where no corridor
-  is feasible.
-- `output/review/cruise_data.xlsx`: a READ ME sheet first, stating in its first cell that every plot and tree is simulated from LiDAR canopy metrics with planted
-  recording errors (not field data) and listing the six data sheets; then Plots, Trees, Unit summary, Stand tables, Stock tables and Standards and assumptions.
-  Plots carry cruiser `SIM` and date `simulated`; the unit summary carries gross and net acres, net cubic volume per acre with its CV, sampling error at 95 %, stratum standard and plots needed (the FSH 2409.12 volume standard), the same set for basal area, TPA, QMD, SDI, CWHR, sawtimber and biomass BA, biomass green
-  tons per acre, CV, plots needed and the standard check; Standards and assumptions has columns item, value, source and url.
+  with loaded deflection of at least 3 %. `payload_at_best_lb` is the same for the highest-payload corridor from
+  the selected landings. Both are blank where no corridor is feasible.
+- `output/review/cruise_data.xlsx`: a READ ME sheet first. Its first cell states that every plot and tree is simulated from LiDAR canopy metrics with planted
+  recording errors (not field data) and lists the six data sheets. Then Plots, Trees, Unit summary, Stand tables, Stock tables and Standards and assumptions.
+  Plots carry cruiser `SIM` and date `simulated`. The unit summary carries gross and net acres, net cubic volume per acre with its CV, sampling error at 95 %, stratum standard and plots needed (the FSH 2409.12 volume standard), the same set for basal area, TPA, QMD, SDI, CWHR, sawtimber and biomass BA, biomass green
+  tons per acre, CV, plots needed and the standard check. Standards and assumptions has columns item, value, source and url.
 - `output/review/qa_summary.csv`: the sale-level QA table printed on the first page of `Unit_Reviews.pdf` (unit, method, acres, plots, cu ft/ac, volume CV and sampling error at 95 %, BA with its CV and error, t, stratum standard, design result on volume, 20-plot local practice, QA flags, status), plus a `data` column whose value is `simulated`
   on every row.
