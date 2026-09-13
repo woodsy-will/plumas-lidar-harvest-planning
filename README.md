@@ -3,12 +3,12 @@
 Harvest-unit planning on 1,816 acres of the Community Protection treatment block on the Plumas National Forest,
 west slope of Mohawk Valley, from USGS 3DEP LiDAR flown in 2018 and public vector data. Products: terrain and
 canopy rasters, 24 demonstration units, a cable-yarding screen, an 11x17 unit map series, and field-data review
-sheets for a simulated cruise. The workflow is the one I ran as a Forester III on the Plumas National Forest
-Community Protection Project, rebuilt here on public data.
+sheets for a simulated cruise. The workflow follows the harvest-unit planning I did as a Forester III on National Forest projects,
+rebuilt here on public data.
 
 I did this kind of work for a contractor on federal timber sales in this landscape. Those deliverables belong to
-the contractor and the Forest Service and none of them appear here. Every number here was computed from public sources by the scripts in `scripts/`. The units are demonstration polygons drawn by the rules in
-`docs/methods.md`. They are not a Forest Service proposal. No field verification has been done.
+the contractor and the Forest Service and none of them appear here. Every number here was computed from public sources by the scripts in [`scripts/`](scripts/). The units are demonstration polygons drawn by the rules in
+[`docs/methods.md`](docs/methods.md). They are not a Forest Service proposal. No field verification has been done.
 
 Interactive map: https://woodsy-will.github.io/projects/plumas-lidar-harvest-planning/map/ (units, skyline corridors, landings, exclusion zones, yarding class and simulated plots, on USGS basemaps).
 
@@ -127,9 +127,9 @@ outline on the overview, cased outlines on the unit sheets), treatment block bou
 roads with numbers, 40 ft contours with 200 ft index, PLSS with township and range, unit table, 11x17, as
 vector print PDF (300 dpi rasters) and as GeoPDF for Avenza. Symbology was reworked against a current Forest
 Service sale area map, Patterson's relief-shading guidance, Jenny and Kelso's color-vision recommendations and
-USGS topographic conventions (table in `docs/methods.md`). Okabe-Ito color-blind-safe palette throughout.
+USGS topographic conventions (table in [`docs/methods.md`](docs/methods.md)). Okabe-Ito color-blind-safe palette throughout.
 
-GeoPackage deliverable with layer descriptions and FGDC / ISO 19115 summary metadata (`docs/data_dictionary.md`).
+GeoPackage deliverable with layer descriptions and FGDC / ISO 19115 summary metadata ([`docs/data_dictionary.md`](docs/data_dictionary.md)).
 Output was checked by measurement against print, web, WCAG contrast and color-vision standards (table in
 `docs/methods.md`).
 
@@ -139,14 +139,14 @@ Stream widths from the Sierra Nevada Forest Plan Amendment. Canopy threshold at 
 boundary. Cruise sampling error is computed on net cubic volume per acre and tested against the FSH 2409.12
 sec. 41.1 volume error standards (40 % per stratum, exhibit 01 for the sale as a whole on net acres), with the
 basal-area error kept as a secondary figure. The 20-plot count is a local practice, not a handbook standard.
-Details and citations in `docs/methods.md`.
+Details and citations in [`docs/methods.md`](docs/methods.md).
 
 ## Outputs
 
 The large deliverables (the merged map series, the GeoPDFs, the individual print sheets, the 300 dpi cable
 figures and the packaged rasters) are attached to the
-[v1.0 release](https://github.com/woodsy-will/plumas-lidar-harvest-planning/releases/tag/v1.0) and kept
-out of git. JPEG previews of everything are in `output/previews`.
+[v1.1 release](https://github.com/woodsy-will/plumas-lidar-harvest-planning/releases/tag/v1.1) and kept
+out of git. JPEG previews of everything are in [`output/previews`](output/previews).
 
 | Folder | Contents |
 |---|---|
@@ -204,9 +204,9 @@ the scripts reference the QGIS install path and the Windows Fonts folder for Ari
 
 ## License and citation
 
-Code: MIT (`LICENSE`). Maps, figures, review sheets and packaged data: CC BY 4.0 (`LICENSE-MAPS-DATA.md`),
-which also lists the terms of each public input. Cite with `CITATION.cff` or as:
-William Steinley (2026), *Mohawk Valley West Slope: LiDAR-based harvest-unit planning*, v1.0,
+Code: MIT ([`LICENSE`](LICENSE)). Maps, figures, review sheets and packaged data: CC BY 4.0 ([`LICENSE-MAPS-DATA.md`](LICENSE-MAPS-DATA.md)),
+which also lists the terms of each public input. Cite with [`CITATION.cff`](CITATION.cff) or as:
+William Steinley (2026), *Mohawk Valley West Slope: LiDAR-based harvest-unit planning*, v1.1,
 https://github.com/woodsy-will/plumas-lidar-harvest-planning. Contact: through https://woodsy-will.github.io/.
 
 ## Limitations

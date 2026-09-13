@@ -245,7 +245,7 @@ the measurements below come from reading the files back with PyMuPDF, GDAL and P
 | Type size | 6 pt minimum, 8 pt preferred on printed maps | smallest map text 6 pt (contour elevation labels), footer and overview unit table 7 pt, legend 7.5 pt, unit panel 9 pt |
 | Metadata | title and author in the document, ISO / FGDC summary for GIS data | PDF document title and author set; GeoPackage carries layer descriptions and a project metadata table |
 
-The merged map series (about 78 MB at 300 dpi) and the GeoPDF folder are kept out of git and attached to the
+The merged map series (about 191 MB at 300 dpi) and the GeoPDF folder are kept out of git and attached to the
 release instead.
 
 ## Colors, metadata and deliverables
