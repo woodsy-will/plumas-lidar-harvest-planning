@@ -57,8 +57,10 @@ taken from the planning slope, a smoothed DTM averaged over 99 ft.
 
 | Method | Units | Acres | Mean slope |
 |---|---|---|---|
-| Tractor | 18 | 1,390 | 10 to 24 % |
+| Tractor | 18 | 1,389 | 10 to 24 % |
 | Cable | 6 | 231 | 42 to 54 % |
+
+Acres by method are direct sums of the rounded unit values; the 1,621 total is from unrounded values.
 
 Units run 30 to 116 acres and are split along ridges and draws. Stream equipment exclusion zones stay inside
 the unit boundary as an internal restriction and are netted out of treatable acres.
