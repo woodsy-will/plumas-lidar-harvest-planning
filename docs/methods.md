@@ -189,6 +189,16 @@ Tables follow publication style: title above, horizontal rules only, footnotes a
 headers. Skyline profiles are drawn at true scale with the vertical exaggeration stated on each panel, and
 "available deflection" is labeled as such: chord-to-ground height at mid-span as a percent of horizontal span.
 
+## Reference documents consulted
+
+Two public Forest Service documents were downloaded on 2026-09-10 into `data/work` (gitignored, not read by any
+script) and used only as design references:
+
+| File | Source | Used for |
+|---|---|---|
+| `data/work/fs_cable_logging_systems.pdf` | USDA Forest Service, *Cable Logging Systems* (Technology and Development Program), https://www.fs.usda.gov/t-d/pubs/htmlpubs/htm08512W03/documents/Cable_Logging_Systems.pdf | skyline terminology, the downhill-yarding rule, and the load-at-midspan relationships cited above |
+| `data/work/ref_sale_area_map.png` | Willamette National Forest timber-sale documents: JC Reoffer sale area map, https://www.fs.usda.gov/sites/nfs/files/r06/willamette/publication/timber-sales/8.%20JC%20Reoffer%20Sale%20Area%20Map.pdf, and the LFC SBA sale area map, https://www.fs.usda.gov/sites/nfs/files/r06/willamette/publication/timber-sales/LFC_SBA_SAM.pdf | the sale-area-map layout and symbology conventions in the table above |
+
 ## Output standards, checked by measurement
 
 The deliverables were checked against current practice for map and figure output and the check is repeatable

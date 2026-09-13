@@ -11,7 +11,7 @@ Sources
   USGS NHD                                -> flowlines, waterbodies
   BLM PLSS CadNSDI                        -> townships, sections
   USGS 3DEP  CA_NoCAL_Wildfires_PlumasNF B1/B2 2018 (QL1) -> LAZ tiles intersecting the AOI
-  Census TIGER/Line ROADS, Plumas County FIPS 06063 (TIGER2023, else TIGER2022) -> local roads intersecting the AOI
+  Census TIGER/Line ROADS, Plumas County FIPS 06063 (TIGER2024, else 2023, else 2022) -> local roads intersecting the AOI
 Every fetch is skipped when its file in data/raw already exists and is non-empty, so re-running never overwrites an input.
 Run with QGIS's bundled Python:  python-qgis-ltr.bat scripts/01_get_data.py [--download]
 """
@@ -63,8 +63,8 @@ def fetch(name, get):
 
 def geom(f): return ogr.CreateGeometryFromJson(json.dumps(f["geometry"]))
 
-def fetch_tiger_roads(zip_path, out_path, aoi_ll, years=(2023, 2022)):
-    """Census TIGER/Line roads for Plumas County: download the county ROADS zip (TIGER2023, else TIGER2022) to
+def fetch_tiger_roads(zip_path, out_path, aoi_ll, years=(2024, 2023, 2022)):
+    """Census TIGER/Line roads for Plumas County: download the county ROADS zip (TIGER2024, else 2023, else 2022) to
     zip_path, then write the segments that intersect the AOI polygon (aoi_ll, EPSG:4326) to out_path as GeoJSON
     in EPSG:4326 with the fields name (FULLNAME) and mtfcc (MTFCC), as scripts 03, 04 and 05 read them.
     Both files are kept when already present and non-empty."""
