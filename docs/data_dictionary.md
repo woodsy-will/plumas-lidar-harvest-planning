@@ -148,3 +148,7 @@ dominant height, each with title, legend or color ramp, one-mile scale bar, nort
   tons per acre, CV, plots needed and the standard check. Standards and assumptions has columns item, value, source and url.
 - `output/review/qa_summary.csv`: the sale-level QA table printed on the first page of `Unit_Reviews.pdf` (unit, method, acres, plots, cu ft/ac, volume CV and sampling error at 95 %, BA with its CV and error, t, stratum standard, design result on volume, 20-plot local practice, QA flags, status), plus a `data` column whose value is `simulated`
   on every row.
+
+## Note on unit slope figures
+
+`slope_mean` and `slope_max` in the GeoPackage `units` layer are computed on the published polygon and are the figures to cite. `output/cable/unit_summary.csv` carries the `slope_mean` value that was current when the cable run started, and it can differ from the GeoPackage by up to half a percentage point. The unit sheets, review sheets and web map read the GeoPackage.

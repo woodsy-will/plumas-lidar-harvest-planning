@@ -173,16 +173,15 @@ out of git. JPEG previews of everything are in [`output/previews`](output/previe
 | `06_review_sheets.py` | simulated cruise, QA checks, review sheets, Excel workbook |
 | `07_previews.py` | JPEG previews and index |
 | `08_package_gis.py` | distributable GeoPackage with metadata, packaged rasters |
+| `09_export_webmap.py` | WGS84 GeoJSON and the yarding-class overlay for the portfolio web map |
 
-Runs on QGIS 3.44's bundled Python (GDAL, PDAL, NumPy, SciPy, PyQGIS, matplotlib, ReportLab, openpyxl, pypdf, PyMuPDF, Pillow).
-No ArcGIS required. The full run from download to previews takes about two hours on a laptop.
+The full run from download to previews takes about two hours on a laptop. Software versions are listed below.
 
 ## How to run
 
-Every script runs on the Python bundled with QGIS 3.44 (`python-qgis-ltr.bat` on Windows). From the repository
-root, in order:
+From the repository root, in order, with the QGIS-bundled Python (`python-qgis-ltr.bat` on Windows):
 
-```
+```bat
 set PY="C:\Program Files\QGIS 3.44.12\bin\python-qgis-ltr.bat"
 %PY% scripts\01_get_data.py          & rem public vectors to data/raw (idempotent)
 %PY% scripts\ept_fetch.py            & rem LiDAR nodes to data/raw/ept (4.3 GB), node list to data/work
