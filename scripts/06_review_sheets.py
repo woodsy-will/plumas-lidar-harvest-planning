@@ -34,7 +34,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAW, WORK, OUT = (os.path.join(ROOT, p) for p in (os.path.join("data", "raw"), os.path.join("data", "work"), os.path.join("output", "review")))
 os.makedirs(OUT, exist_ok=True)
 BAF = 20.0; GRID = 300.0
-MIN_PLOTS = 20         # 20-plot local practice, not a handbook standard (reported; the WO standard is the volume sampling error)
+MIN_PLOTS = 20         # R5 Supplement 2409.12-2021-4 sec. 41.3: "For area based (plot) cruises, there shall be a minimum of 20 plots"
 TARGET_SDI_PCT = 35    # leave target at the lower limit of full site occupancy, 35 % of maximum SDI (Long 1985)
 SPECIES = {"PP": ("Ponderosa pine", 0.30), "WF": ("White fir", 0.30), "DF": ("Douglas-fir", 0.15), "SP": ("Sugar pine", 0.10), "IC": ("Incense-cedar", 0.15)}
 rng = np.random.default_rng(20260910)
@@ -125,14 +125,45 @@ print(f"QA flagged {len(found)} plots; planted errors caught: {sum(1 for e in pl
 #   form-factor fallback for unknown codes (Avery and Burkhart); Scribner board feet at BF_PER_CF (Keegan et al. 2010, table 2,
 #   California 2000-2006); green weight by species (Miles and Smith 2009, NRS-38 table 1A); sampling error at 95 % with
 #   Student's t on n-1 df computed on plot net cubic VOLUME per acre (the basal-area error is kept as a secondary figure),
-#   tested against the FSH 2409.12 ch. 40 sec. 41.1 volume error standards: 41.1(5)(b) 40 % per stratum (tree-measurement
-#   sale) and 41.1(5)(a) exhibit 01 for the sale as a whole, placed with the Region 5 FY2025 average sold value per MBF
-#   (Cut and Sold report) on net acres.
+#   tested against the sampling error standards a Plumas sale is designed to: Region 5 Supplement 2409.12-2021-4 to FSH
+#   2409.12 ch. 40 (effective 2021-08-11), which replaces the national sec. 41.1 figures. Sec. 41.1 stratum volume error
+#   standard: "The maximum sampling error for any one stratum that represents more than 10 percent of the total sale volume
+#   is 40 percent for scaled sales and 30 percent for tree measurement sales" (national text 41.1(5)(b): 40 %). Sale as a
+#   whole, sec. 41.1 and R5 exhibit 01: $250,000 or more, "for a scaled sale must be 20 percent or less, for tree
+#   measurement sale must be 10 percent or less"; $2,000 to $5,000, 35 % scaled / 25 % tree measurement; under $2,000 with
+#   sawlogs, the stratum figures; "See FSH 2409.12 Chapter 40, 41.1 Exhibit 01 for sales more than $5,000" (the national
+#   tiers, up to $250,000). Sec. 41.3: "each major species or species group shall have at least 20 measured trees. A major
+#   species is defined as one that comprises 10 percent or more of the sale value" and "For area based (plot) cruises,
+#   there shall be a minimum of 20 plots". The sale is placed by value with the Region 5 FY2025 average sold value per MBF
+#   (Cut and Sold report) on net acres. Plots tally all trees, so this is a pre-marking stand exam; the sale-cruise
+#   standards are applied as if the whole tallied volume were designated for cutting.
 from scipy import stats
 SDI_MAX_SP = {"PP": 365, "WF": 800, "DF": 570, "SP": 561, "IC": 576}     # FVS WS variant overview table 3.5.1, revision of 2025-09-23
 SDI_SRC_URL = "https://www.fs.usda.gov/sites/default/files/forest-management/fvs-ws-overview.pdf"
-STRATUM_STD = 40.0                                                          # FSH 2409.12 41.1(5)(b) stratum VOLUME error standard, tree-measurement sales
-SALE_TIERS = [(10000, 25), (20000, 20), (45000, 18), (70000, 16), (95000, 14), (120000, 12), (float("inf"), 10)]   # 41.1 exhibit 01, tree measurement
+R5_SUPP = "R5 Supplement 2409.12-2021-4"                                    # Pacific Southwest Region supplement to FSH 2409.12 ch. 40, effective 2021-08-11
+R5_SUPP_URL = "https://www.fs.usda.gov/im/directives/field/r5/fsh/2409.12/R5-2409-12-40-2021-4.docx"
+STRATUM_STD = 30.0                                                          # R5 41.1 stratum VOLUME error standard, tree-measurement sales (40 % scaled)
+STRATUM_STD_SCALED = 40.0                                                   # R5 41.1 stratum standard, scaled sales
+STRATUM_STD_NATIONAL = 40.0                                                 # national text FSH 2409.12 41.1(5)(b), tree measurement; superseded in R5
+STRATUM_SHARE_PCT = 10.0                                                    # R5 41.1: the stratum standard binds for strata over 10 % of total sale volume
+SALE_TIERS = [(10000, 25), (20000, 20), (45000, 18), (70000, 16), (95000, 14), (120000, 12), (float("inf"), 10)]   # national 41.1 exhibit 01, tree measurement; R5 exhibit 01 adopts it for sales between $5,000 and $250,000
+R5_HIGH_VALUE, R5_HIGH_VALUE_STD = 250000.0, 10.0                           # R5 41.1 high-value sale, tree measurement (20 % scaled)
+R5_SMALL_SALE, R5_SMALL_SALE_STD = 5000.0, 25.0                             # R5 exhibit 01 small timber sale $2,000 to $5,000, tree measurement (35 % scaled)
+R5_LOW_VALUE = 2000.0                                                       # R5 41.1 low-value timber sale (sawlogs) under $2,000: the stratum figure applies
+MIN_MEASURED_TREES, MAJOR_SPECIES_PCT = 20, 10.0                            # R5 41.3: 20 measured trees per major species; major = 10 % or more of sale value
+
+
+def sale_standard(value):
+    """R5 41.1 sale-as-a-whole volume error standard (percent at 95 %) for a tree-measurement sale of the given estimated value,
+    with the basis in words and the national exhibit 01 tier for comparison."""
+    nat = next(pct for lim, pct in SALE_TIERS if value < lim)
+    if value >= R5_HIGH_VALUE:
+        return R5_HIGH_VALUE_STD, f"{R5_SUPP} sec. 41.1, high-value sale of $250,000 or more (10 % tree measurement, 20 % scaled)", nat
+    if value < R5_LOW_VALUE:
+        return STRATUM_STD, f"{R5_SUPP} sec. 41.1, low-value timber sale under $2,000 with sawlogs (the stratum figure)", nat
+    if value < R5_SMALL_SALE:
+        return R5_SMALL_SALE_STD, f"{R5_SUPP} exhibit 01, small timber sale of $2,000 to $5,000 (25 % tree measurement, 35 % scaled)", nat
+    return nat, f"national FSH 2409.12 41.1 exhibit 01 tier, which {R5_SUPP} exhibit 01 adopts for sales between $5,000 and $250,000", nat
 # Stumpage used to place the sale in exhibit 01: Region 5 total sold value / total sold volume, FY2025 Q1-Q4 Cut and Sold report
 # (CUTS203R, run 2025-12-08). The report notes that Good Neighbor sale values are excluded, so this is a demonstration placement.
 R5_FY2025_SOLD_VALUE, R5_FY2025_SOLD_MBF = 9223272.19, 274275.08
@@ -146,7 +177,7 @@ GREEN_LB_DEFAULT = 45.0         # fallback for unknown species codes: rounded me
 GREEN_SRC_URL = "https://research.fs.usda.gov/treesearch/34185"
 CVTS_SRC_URL = "https://ww2.arb.ca.gov/sites/default/files/cap-and-trade/protocols/usforest/2011/volume_equations.pdf"
 DBH_CLASS = 4                                                               # stand table class width, in
-PRACTICE_MIN_PLOTS = MIN_PLOTS                                              # 20-plot local practice, not a handbook standard; reported only
+PRACTICE_MIN_PLOTS = MIN_PLOTS                                              # R5 41.3 minimum of 20 plots for an area-based (plot) cruise
 
 
 def cvts(sp, dbh, ht):
@@ -232,7 +263,13 @@ def metrics(uid):
     size_cls = "1" if qmd < 1 else "2" if qmd < 6 else "3" if qmd < 11 else "4" if qmd < 24 else "5"
     cover = float(np.mean([p["cover"] for p in ps]))
     dens_cls = "open" if cover < 10 else "S" if cover < 25 else "P" if cover < 40 else "M" if cover < 60 else "D"   # CWHR: S 10-24, P 25-39, M 40-59, D 60-100
-    return dict(plots=n, ba=ba, tval=ve["tval"], se_std=STRATUM_STD,
+    # measured trees by species for the R5 41.3 check: every simulated tally tree is measured for DBH and height, so the count is
+    # the tally less the records QA drops (bad species code, DBH out of range, missing height)
+    measured = {}
+    for t in tl:
+        if t["species"] in SPECIES and t["height"] is not None:
+            measured[t["species"]] = measured.get(t["species"], 0) + 1
+    return dict(plots=n, ba=ba, tval=ve["tval"], se_std=STRATUM_STD, measured=measured,
                 ba_sd=bae["sd"], ba_se_pct=bae["se_pct"], ba_cv=bae["cv"], ba_se95=bae["se95"], ba_needed=bae["needed"], ba_meets=(bae["se95"] <= STRATUM_STD),
                 vol_sd=ve["sd"], vol_se_pct=ve["se_pct"], vol_cv=ve["cv"], vol_se95=ve["se95"], vol_needed=ve["needed"],
                 meets=(ve["se95"] <= STRATUM_STD), practice_ok=(n >= PRACTICE_MIN_PLOTS), tpa=tpa, qmd=qmd, cuft=vol, mbf=vol / 1000 * BF_PER_CF,
@@ -250,10 +287,30 @@ sale_ba = sum(w * m["ba"] for w, m, u in est); sale_ba_se95 = 2 * math.sqrt(sum(
 sale_vol = sum(w * m["cuft"] for w, m, u in est); sale_vol_se95 = 2 * math.sqrt(sum(w ** 2 * m["vol_sd"] ** 2 / m["plots"] for w, m, u in est)) / sale_vol * 100
 sale_mbf_gross = sum(u["acres"] * m["mbf"] for w, m, u in est); sale_value_gross = sale_mbf_gross * STUMPAGE_PER_MBF
 sale_mbf = sum(u["net_acres"] * m["mbf"] for w, m, u in est); sale_value = sale_mbf * STUMPAGE_PER_MBF
-sale_std = next(pct for lim, pct in SALE_TIERS if sale_value < lim); sale_meets = sale_vol_se95 <= sale_std
+sale_std, sale_basis, sale_std_national = sale_standard(sale_value); sale_meets = sale_vol_se95 <= sale_std
 print(f"sale as a whole: volume {sale_vol:,.0f} cu ft/ac, volume SE {sale_vol_se95:.1f} % at 95 % (BA {sale_ba:.0f} sq ft/ac, BA SE {sale_ba_se95:.1f} %), "
-      f"standard {sale_std} % ({'MEETS' if sale_meets else 'FAILS'}) for a net-acre value of ${sale_value:,.0f} ({sale_mbf:,.0f} MBF on {tot_net:,.0f} net ac; "
+      f"standard {sale_std} % ({'MEETS' if sale_meets else 'FAILS'}; {sale_basis}; national exhibit 01 tier {sale_std_national} %) for a net-acre value of ${sale_value:,.0f} ({sale_mbf:,.0f} MBF on {tot_net:,.0f} net ac; "
       f"gross-acre total {sale_mbf_gross:,.0f} MBF on {tot_ac:,.0f} ac = ${sale_value_gross:,.0f}) at the Region 5 FY2025 sold average of ${STUMPAGE_PER_MBF:.2f}/MBF")
+# R5 41.1: the stratum standard binds for any stratum over STRATUM_SHARE_PCT of total sale volume; every unit is tested, and the
+# sheet says whether the standard binds for it or is shown for information. Share = the unit's net-acre MBF over the sale total.
+for w, m, u in est:
+    m["share"] = u["net_acres"] * m["mbf"] / sale_mbf * 100; m["binds"] = m["share"] > STRATUM_SHARE_PCT
+# R5 41.3: at least 20 measured trees per major species; major = 10 % or more of sale VALUE. One stumpage rate is applied to
+# every species, so value share equals net-acre volume share. Counted for the sale (the requirement) and for each unit.
+sale_sp_vol = {}
+for w, m, u in est:
+    for k, s in m["sp_stat"].items():
+        sale_sp_vol[k] = sale_sp_vol.get(k, 0.0) + u["net_acres"] * s["vol"]
+sale_sp_share = {k: v / sum(sale_sp_vol.values()) * 100 for k, v in sale_sp_vol.items()}
+major_species = [k for k, v in sorted(sale_sp_share.items(), key=lambda x: -x[1]) if k in SPECIES and v >= MAJOR_SPECIES_PCT]
+sale_measured = {k: sum(m["measured"].get(k, 0) for w, m, u in est) for k in SPECIES}
+sale_trees_ok = all(sale_measured[k] >= MIN_MEASURED_TREES for k in major_species)
+for w, m, u in est:
+    m["trees_short"] = [k for k in major_species if m["measured"].get(k, 0) < MIN_MEASURED_TREES]; m["trees_ok"] = not m["trees_short"]
+print(f"major species (>= {MAJOR_SPECIES_PCT:.0f} % of sale value): " + ", ".join(f"{k} {sale_sp_share[k]:.1f} %" for k in major_species)
+      + f"; measured trees for the sale: " + ", ".join(f"{k} {sale_measured[k]}" for k in SPECIES) + f" ({'MEETS' if sale_trees_ok else 'FAILS'} the R5 41.3 minimum of {MIN_MEASURED_TREES}); "
+      f"units meeting it: {sum(1 for w, m, u in est if m['trees_ok'])} of {len(est)}; units where the stratum standard binds (> {STRATUM_SHARE_PCT:.0f} % of sale volume): {sum(1 for w, m, u in est if m['binds'])}; "
+      f"units meeting {STRATUM_STD:.0f} %: {sum(1 for w, m, u in est if m['meets'])} of {len(est)}, worst {max(m['vol_se95'] for w, m, u in est):.1f} %; units with 20 plots: {sum(1 for w, m, u in est if m['practice_ok'])}")
 
 # ---- outputs: gpkg, xlsx ----
 drv = ogr.GetDriverByName("GPKG"); gp = os.path.join(WORK, "cruise_plots.gpkg")
@@ -276,14 +333,16 @@ ws2 = wb.create_sheet("Trees"); ws2.append(["plot", "unit_id", "tree", "species"
 for t in trees:
     ws2.append([t["plot"], t["unit_id"], t["tree"], t["species"], t["dbh"], t["height"], t["status"], t["defect"], round(0.005454 * t["dbh"] ** 2, 3) if 1 <= t["dbh"] <= 80 else None, round(BAF / (0.005454 * t["dbh"] ** 2), 2) if 1 <= t["dbh"] <= 80 else None])
 ws3 = wb.create_sheet("Unit summary")
-ws3.append(["unit_id", "method", "gross acres", "net acres", "plots", "t (95 %, n-1)", "cu ft/ac", "SD of plot cu ft/ac", "vol_cv %", "vol_se95 %", "stratum standard % (volume)", "meets standard (volume)", "plots for standard (volume)",
-            "BA sq ft/ac", "SD of plot BA", "ba_cv %", "ba_se95 %", "plots for standard (BA)", "20-plot local practice (not a handbook standard)",
+ws3.append(["unit_id", "method", "gross acres", "net acres", "plots", "t (95 %, n-1)", "cu ft/ac", "SD of plot cu ft/ac", "vol_cv %", "vol_se95 %", "stratum standard % (volume, R5 41.1 tree measurement)", "meets standard (volume)", "plots for standard (volume)",
+            "share of sale volume % (net acres)", "stratum standard binds (share > 10 %, R5 sec. 41.1)", "measured trees by species", "R5 20 measured trees per major species (sec. 41.3)",
+            "BA sq ft/ac", "SD of plot BA", "ba_cv %", "ba_se95 %", "plots for standard (BA)", "R5 20-plot minimum (sec. 41.3)",
             "TPA", "QMD in", "MBF/ac Scribner", "SDI", "SDI max (BA-wtd FVS WS)", "SDI % of max", "CWHR size", "CWHR density", "Sawtimber BA", "Biomass BA", "Biomass green tons/ac", "QA flags"])
 for u, g in units:
     m = M[u["unit_id"]]
     if m:
         nf = len({(p["plot"], f) for p in plots if p["unit_id"] == u["unit_id"] for f in flags.get(p["plot"], [])})
         ws3.append([u["unit_id"], u["method"], round(u["acres"], 1), round(u["net_acres"], 1), m["plots"], round(m["tval"], 3), round(m["cuft"]), round(m["vol_sd"]), round(m["vol_cv"], 1), round(m["vol_se95"], 1), m["se_std"], "yes" if m["meets"] else "no", m["vol_needed"],
+                    round(m["share"], 1), "binds" if m["binds"] else "for information", ", ".join(f"{k} {m['measured'].get(k, 0)}" for k in SPECIES), "yes" if m["trees_ok"] else "no: " + ", ".join(m["trees_short"]),
                     round(m["ba"], 1), round(m["ba_sd"], 1), round(m["ba_cv"], 1), round(m["ba_se95"], 1), m["ba_needed"], "yes" if m["practice_ok"] else "no",
                     round(m["tpa"]), round(m["qmd"], 1), round(m["mbf"], 1), round(m["sdi"]), round(m["sdimax"]), round(m["sdi_pct"]), m["size_cls"], m["dens_cls"], round(m["saw"]["ba"]), round(m["bio"]["ba"]), round(m["bio"]["lb"] / 2000, 1), nf])
 ws4 = wb.create_sheet("Stand tables"); ws4.append(["unit_id", "DBH class (in)", "trees tallied", "TPA", "BA sq ft/ac", "cu ft/ac", "MBF/ac"])
@@ -306,14 +365,17 @@ for row in (["item", "value", "source", "url"],
             ["Basal area factor", BAF, "variable-radius (prism) cruise; BA/ac = trees in x BAF (Univ. of Tennessee Extension W1117, common forest measurements)", "https://utia.tennessee.edu/publications/wp-content/uploads/sites/269/2023/10/W1117.pdf"],
             ["Tree basal area", "0.005454 x DBH^2 sq ft", "standard mensuration (Univ. of Tennessee Extension W1117)", "https://utia.tennessee.edu/publications/wp-content/uploads/sites/269/2023/10/W1117.pdf"],
             ["Expansion factor", "BAF / tree BA, divided by plots", "per-tree trees per acre in a variable-radius cruise (Univ. of Tennessee Extension W1117)", "https://utia.tennessee.edu/publications/wp-content/uploads/sites/269/2023/10/W1117.pdf"],
-            ["Sampling error (volume)", "t(0.975, n-1) x SE / mean of plot net cubic volume per acre, percent; plot volume = sum over tally trees of net CVTS x BAF / tree BA (sale as a whole uses t = 2, the handbook's large-sample value)", "FSH 2409.12 ch. 40, 41.1(5)(a) sale-as-a-whole volume error standard and 41.1(5)(b) stratum volume error standard: the error standards apply to VOLUME at 95 % confidence (t = 2 for large n)", FSH_URL],
-            ["Sampling error (basal area)", "the same statistic on plot basal area (trees in x BAF); reported as a secondary figure, not tested against the standard", "retained for reference; volume CV runs about twice the basal-area CV, so the basal-area error understates what the handbook tests", FSH_URL],
-            ["Stratum standard", f"{STRATUM_STD:.0f} % of volume", "FSH 2409.12 ch. 40, 41.1(5)(b) stratum volume error standard: tree-measurement sales", FSH_URL],
-            ["Sale-as-a-whole standard", f"{sale_std} % of volume at a net-acre value of ${sale_value:,.0f} ({sale_mbf:,.0f} MBF on {tot_net:,.0f} net ac x ${STUMPAGE_PER_MBF:.2f}/MBF; gross-acre total {sale_mbf_gross:,.0f} MBF on {tot_ac:,.0f} ac = ${sale_value_gross:,.0f})", "FSH 2409.12 ch. 40, 41.1(5)(a) and exhibit 01 (tree measurement column); net acres = gross less stream equipment exclusion zones", FSH_URL],
-            ["Stumpage for exhibit 01", f"${STUMPAGE_PER_MBF:.2f} per MBF = Region 5 sold value ${R5_FY2025_SOLD_VALUE:,.2f} / sold volume {R5_FY2025_SOLD_MBF:,.2f} MBF, all sales", "Forest Service Cut and Sold report CUTS203R, Region 5, cumulative FY2025 Q1-Q4 (run 2025-12-08), region total row; the report excludes Good Neighbor sale values and says not to use it for unit values, so this is a demonstration placement", STUMPAGE_SRC_URL],
+            ["Sampling error (volume)", "t(0.975, n-1) x SE / mean of plot net cubic volume per acre, percent; plot volume = sum over tally trees of net CVTS x BAF / tree BA (sale as a whole uses t = 2, the handbook's large-sample value)", f"{R5_SUPP} sec. 41.1 (effective 2021-08-11), which replaces the national FSH 2409.12 ch. 40 sec. 41.1(5) figures for a Region 5 sale: the sale-as-a-whole and stratum error standards apply to VOLUME at 95 % confidence (t = 2 for large n)", R5_SUPP_URL],
+            ["Sampling error (basal area)", "the same statistic on plot basal area (trees in x BAF); reported as a secondary figure, not tested against the standard", "retained for reference; volume CV runs about twice the basal-area CV, so the basal-area error understates what the handbook tests", R5_SUPP_URL],
+            ["Standards source", f"{R5_SUPP}, FSH 2409.12 ch. 40, Pacific Southwest Region, effective 2021-08-11 (supersedes 2409.12-2019-1)", "Region 5 supplement to the Timber Cruising Handbook; national text FSH 2409.12 ch. 40 WO amendment 2012-1 at the directives index", R5_SUPP_URL + " ; " + FSH_URL],
+            ["Stratum standard", f"{STRATUM_STD:.0f} % of volume, tree-measurement sales ({STRATUM_STD_SCALED:.0f} % scaled); binds for any stratum over {STRATUM_SHARE_PCT:.0f} % of total sale volume, shown for information for smaller units; national text 41.1(5)(b): {STRATUM_STD_NATIONAL:.0f} %", f"{R5_SUPP} sec. 41.1, Stratum Volume Error Standard: 'The maximum sampling error for any one stratum that represents more than 10 percent of the total sale volume is 40 percent for scaled sales and 30 percent for tree measurement sales'", R5_SUPP_URL],
+            ["Sale-as-a-whole standard", f"{sale_std} % of volume at a net-acre value of ${sale_value:,.0f} ({sale_mbf:,.0f} MBF on {tot_net:,.0f} net ac x ${STUMPAGE_PER_MBF:.2f}/MBF; gross-acre total {sale_mbf_gross:,.0f} MBF on {tot_ac:,.0f} ac = ${sale_value_gross:,.0f}); national exhibit 01 tier {sale_std_national} %", f"{sale_basis}. R5 41.1 and exhibit 01: $250,000 or more, 'for a scaled sale must be 20 percent or less, for tree measurement sale must be 10 percent or less'; $2,000 to $5,000, 35 % scaled / 25 % tree measurement; under $2,000 with sawlogs, the stratum figures; 'See FSH 2409.12 Chapter 40, 41.1 Exhibit 01 for sales more than $5,000'. Net acres = gross less stream equipment exclusion zones", R5_SUPP_URL],
+            ["Stumpage for sale value", f"${STUMPAGE_PER_MBF:.2f} per MBF = Region 5 sold value ${R5_FY2025_SOLD_VALUE:,.2f} / sold volume {R5_FY2025_SOLD_MBF:,.2f} MBF, all sales", "Forest Service Cut and Sold report CUTS203R, Region 5, cumulative FY2025 Q1-Q4 (run 2025-12-08), region total row; the report excludes Good Neighbor sale values and says not to use it for unit values, so this is a demonstration placement", STUMPAGE_SRC_URL],
             ["Sale-as-a-whole estimate", "stratified by unit, gross-area weights (plots sample the gross unit); var = sum(W^2 s^2 / n) on plot volume per acre, basal area alongside", "Cochran; FSH 2409.12 ch. 30", FSH_URL],
-            ["Practice minimum plots", PRACTICE_MIN_PLOTS, "20-plot local practice, not a handbook standard; reported only", "n/a: local practice; not a published standard"],
-            ["Plots for standard", "(t x CV / E)^2 with the volume CV (the basal-area figure is also listed)", "FSH 2409.12 ch. 30 sample size", FSH_URL],
+            ["R5 20 measured trees per major species", f"{MIN_MEASURED_TREES} measured trees for each species with {MAJOR_SPECIES_PCT:.0f} % or more of sale value; major species here: " + ", ".join(f"{k} {sale_sp_share[k]:.1f} %" for k in major_species) + "; sale counts: " + ", ".join(f"{k} {sale_measured[k]}" for k in SPECIES), f"{R5_SUPP} sec. 41.3: 'each major species or species group shall have at least 20 measured trees. A major species is defined as one that comprises 10 percent or more of the sale value'. One stumpage rate is applied to every species, so value share equals net-acre volume share. Every simulated tally tree is measured for DBH and height; QA-dropped records are not counted", R5_SUPP_URL],
+            ["R5 20-plot minimum", PRACTICE_MIN_PLOTS, f"{R5_SUPP} sec. 41.3: 'For area based (plot) cruises, there shall be a minimum of 20 plots'", R5_SUPP_URL],
+            ["Cruise type", "pre-marking stand exam: plots tally all trees; the sale-cruise standards are applied as if the whole tallied volume were designated for cutting", "demonstration convention; a sale cruise would tally designated trees only", "https://github.com/woodsy-will/plumas-lidar-harvest-planning/blob/main/docs/methods.md"],
+            ["Plots for standard", f"(t x CV / E)^2 with the volume CV and E = {STRATUM_STD:.0f} % (the basal-area figure is also listed)", "FSH 2409.12 ch. 30 sample size", FSH_URL],
             ["SDI", "sum over trees of TPA x (DBH/10)^1.605", "Reineke 1933; summation form after Shaw 2000, reviewed in Shaw 2006", "https://www.fs.usda.gov/rm/pubs_other/rmrs_2006_shaw_j006.pdf"],
             ["SDI maximum", "BA-weighted mean of species maxima: " + ", ".join(f"{k} {v}" for k, v in SDI_MAX_SP.items()), "FVS Staff 2008 (revised 2025-09-23), Western Sierra Nevada (WS) Variant Overview, Forest Vegetation Simulator, table 3.5.1 (sources Shaw and PSW); earlier revisions of the overview listed different maxima for some species", SDI_SRC_URL],
             ["Relative density zones", "35 % of max = lower limit of full site occupancy; 60 % = onset of competition mortality", "Long 1985; Long and Shaw 2012 (Sierra mixed conifer DMD)", "https://research.fs.usda.gov/treesearch/25003"],
@@ -365,6 +427,7 @@ B.fontName = FONT; H.fontName = FONT_B
 from reportlab.lib.styles import ParagraphStyle
 TT = ParagraphStyle("tt", parent=B, fontName=FONT_B, fontSize=8.5, leading=10, spaceBefore=6, spaceAfter=2)      # table title, above the table
 FN = ParagraphStyle("fn", parent=B, fontName=FONT, fontSize=7, leading=8.5, textColor=colors.HexColor("#444444"), spaceBefore=2)   # footnote, below
+CS = ParagraphStyle("cell", parent=B, fontName=FONT, fontSize=8, leading=10)                                                        # Table 1 value cell: wraps inside its column
 GREEN, PALE = colors.HexColor("#dde8d0"), colors.HexColor("#f3f6ee")
 
 
@@ -403,28 +466,33 @@ def build_page(u, g):
         ax.spines[sde].set_visible(True)
     mp = os.path.join(WORK, f"_plotmap_{uid}.png"); fig.tight_layout(); fig.savefig(mp, dpi=200); plt.close(fig)
     page = [Paragraph(f"Unit {uid} Field Data Review", H),
-            Paragraph(f"Mohawk Valley West Slope demonstration. <b>{u['method']}</b> unit, {u['acres']:.1f} ac. {m['plots']} plots, BAF {BAF:.0f}, variable-radius cruise on a {GRID:.0f} ft grid, {sum(p['n_trees'] for p in ps)} trees tallied. Simulated data with planted recording errors; see docs/methods.md.", B)]
-    # Table 1: stand summary
+            Paragraph(f"Mohawk Valley West Slope demonstration. <b>{u['method']}</b> unit, {u['acres']:.1f} ac. {m['plots']} plots, BAF {BAF:.0f}, variable-radius cruise on a {GRID:.0f} ft grid, {sum(p['n_trees'] for p in ps)} trees tallied. Simulated data with planted recording errors; see docs/methods.md. "
+                      "Plots tally all trees, so this is a pre-marking stand exam; the sale-cruise standards are applied as if the whole tallied volume were designated for cutting.", B)]
+    # Table 1: stand summary. Value cells are Paragraphs so long entries wrap inside their column instead of running into the next
+    P = lambda s: Paragraph(s, CS)
     st = [["STAND DENSITY", "", "STAND INFO", ""],
-          ["Basal area", f"{m['ba']:.0f} sq ft/ac  (1 SE of mean, BA {m['ba_se_pct']:.1f} %)", "Type", "Sierran mixed conifer"],
-          ["Trees per acre", f"{m['tpa']:.0f}", "CWHR size / density", f"{m['size_cls']} / {m['dens_cls']}   (cover {m['cover']:.0f} %)"],
-          ["QMD", f"{m['qmd']:.1f} in", "SDI", f"{m['sdi']:.0f}  ({m['sdi_pct']:.0f} % of max {m['sdimax']:.0f})"],
+          ["Basal area", P(f"{m['ba']:.0f} sq ft/ac  (1 SE of mean, BA {m['ba_se_pct']:.1f} %)"), "Type", P("Sierran mixed conifer")],
+          ["Trees per acre", P(f"{m['tpa']:.0f}"), "CWHR size / density", P(f"{m['size_cls']} / {m['dens_cls']}   (cover {m['cover']:.0f} %)")],
+          ["QMD", P(f"{m['qmd']:.1f} in"), "SDI", P(f"{m['sdi']:.0f}  ({m['sdi_pct']:.0f} % of max {m['sdimax']:.0f})")],
           ["SAWTIMBER  (>= 10 in)", "", "BIOMASS  (< 10 in)", ""],
-          ["BA | QMD", f"{m['saw']['ba']:.0f} sq ft/ac | {m['saw']['qmd']:.1f} in", "BA | QMD", f"{m['bio']['ba']:.0f} sq ft/ac | {m['bio']['qmd']:.1f} in"],
-          ["TPA", f"{m['saw']['tpa']:.0f}", "TPA", f"{m['bio']['tpa']:.0f}"],
-          ["Volume", f"{m['saw']['vol'] / 1000 * BF_PER_CF:.1f} MBF/ac  ({m['saw']['vol']:.0f} cu ft)", "Volume", f"{m['bio']['lb'] / 2000:.1f} green tons/ac  ({m['bio']['vol']:.0f} cu ft)"],
+          ["BA | QMD", P(f"{m['saw']['ba']:.0f} sq ft/ac | {m['saw']['qmd']:.1f} in"), "BA | QMD", P(f"{m['bio']['ba']:.0f} sq ft/ac | {m['bio']['qmd']:.1f} in")],
+          ["TPA", P(f"{m['saw']['tpa']:.0f}"), "TPA", P(f"{m['bio']['tpa']:.0f}")],
+          ["Volume", P(f"{m['saw']['vol'] / 1000 * BF_PER_CF:.1f} MBF/ac  ({m['saw']['vol']:.0f} cu ft)"), "Volume", P(f"{m['bio']['lb'] / 2000:.1f} green tons/ac  ({m['bio']['vol']:.0f} cu ft)")],
           ["TREATMENT TARGET", "", "CRUISE DESIGN", ""],
-          ["Leave", f"{TARGET_SDI_PCT} % of max SDI, about {m['target_ba']:.0f} sq ft/ac BA", "Sampling error (volume)", f"{m['vol_se95']:.1f} % at 95 %  (CV {m['vol_cv']:.0f} %, t = {m['tval']:.2f}, n = {m['plots']})"],
-          ["Species (BA)", ", ".join(f"{s} {b:.0f}" for s, b in m["species"][:5]), "Stratum standard", f"{m['se_std']:.0f} % of volume, {'MEETS' if m['meets'] else 'FAILS'}; plots for standard {m['vol_needed']}"],
-          ["", "", "Sampling error (basal area)", f"{m['ba_se95']:.1f} % at 95 %  (CV {m['ba_cv']:.0f} %); reference, not the standard"],
-          ["", "", "Plot count", f"{m['plots']}; 20-plot local practice, not a handbook standard: {'ok' if m['practice_ok'] else 'SHORT by ' + str(PRACTICE_MIN_PLOTS - m['plots'])}"]]
-    t1 = Table(st, colWidths=[1.1 * inch, 1.95 * inch, 1.25 * inch, 2.9 * inch])
-    t1.setStyle(tstyle(head_rows=(0, 4, 8), extra=[("BACKGROUND", (0, r0), (0, r1), PALE) for r0, r1 in ((1, 3), (5, 7), (9, 12))] + [("BACKGROUND", (2, r0), (2, r1), PALE) for r0, r1 in ((1, 3), (5, 7), (9, 12))]))
+          ["Leave", P(f"{TARGET_SDI_PCT} % of max SDI, about {m['target_ba']:.0f} sq ft/ac BA"), "Vol. sampling error", P(f"{m['vol_se95']:.1f} % at 95 %  (CV {m['vol_cv']:.0f} %, t = {m['tval']:.2f}, n = {m['plots']})")],
+          ["Species (BA)", P(", ".join(f"{s} {b:.0f}" for s, b in m["species"][:5])), "Stratum standard", P(f"{m['se_std']:.0f} % of volume (R5 2409.12-2021-4, sec. 41.1): <b>{'MEETS' if m['meets'] else 'FAILS'}</b>; plots for standard {m['vol_needed']}")],
+          ["", "", "Sale volume share", P(f"{m['share']:.1f} % of sale volume: standard {'<b>binds</b> (over' if m['binds'] else 'shown for information (under'} the R5 {STRATUM_SHARE_PCT:.0f} % threshold)")],
+          ["", "", "BA sampling error", P(f"{m['ba_se95']:.1f} % at 95 %  (CV {m['ba_cv']:.0f} %); reference, not the standard")],
+          ["", "", "Measured trees", P(", ".join(f"{k} {m['measured'].get(k, 0)}" for k in SPECIES) + f"; R5 {MIN_MEASURED_TREES} measured trees per major species (sec. 41.3; major by sale value: {', '.join(major_species)}): " + ("<b>ok</b>" if m["trees_ok"] else "<b>SHORT</b>: " + ", ".join(f"{k} {m['measured'].get(k, 0)}" for k in m["trees_short"])))],
+          ["", "", "Plot count", P(f"{m['plots']}; R5 {PRACTICE_MIN_PLOTS}-plot minimum for an area-based cruise (sec. 41.3): " + ("<b>ok</b>" if m["practice_ok"] else f"<b>SHORT</b> by {PRACTICE_MIN_PLOTS - m['plots']}"))]]
+    t1 = Table(st, colWidths=[1.0 * inch, 1.9 * inch, 1.3 * inch, 3.0 * inch])
+    t1.setStyle(tstyle(head_rows=(0, 4, 8), extra=[("BACKGROUND", (0, r0), (0, r1), PALE) for r0, r1 in ((1, 3), (5, 7), (9, 14))] + [("BACKGROUND", (2, r0), (2, r1), PALE) for r0, r1 in ((1, 3), (5, 7), (9, 14))]))
     page += [Paragraph("TABLE 1. STAND SUMMARY, BAF 20 CRUISE, PER ACRE", TT), t1,
              Paragraph(f"Cubic volume is total-stem CVTS by species (PNW-FIA California equations, MacLean and Berger 1976, CARB 2011 compendium), net of defect. Scribner board feet at {BF_PER_CF} bf/cu ft (Keegan et al. 2010, table 2, California 2000-2006). "
                        f"Green tons at " + ", ".join(f"{k} {v:.0f}" for k, v in GREEN_LB_PER_CF.items()) + " lb/cu ft of wood (Miles and Smith 2009, NRS-38 table 1A). SDI in the summation form; maximum is the basal-area-weighted FVS Western Sierra species maximum (table 3.5.1, rev. 2025-09-23). "
                        f"The Keegan ratio is Scribner log scale per cubic foot of delivered sawlog fiber; applied to total-stem CVTS it overstates sawlog volume. Merchantable cubic volume is the consistent pairing. "
-                       f"Sampling error at 95 % confidence, Student's t, on plot net cubic volume per acre, the quantity the handbook standards test (FSH 2409.12 ch. 40, 41.1(5)(a) and (b)); stratum standard {STRATUM_STD:.0f} % of volume for tree-measurement sales. The basal-area error is reference only. Stand-summary BA counts every tallied tree (plot count x BAF); the stand and stock tables drop records flagged by QA, such as an out-of-range DBH, so the two can differ by a few tenths. Sources and URLs: cruise_data.xlsx, Standards and assumptions.", FN)]
+                       f"Sampling error at 95 % confidence, Student's t, on plot net cubic volume per acre, the quantity the standards test. Standards: Region 5 Supplement 2409.12-2021-4 to FSH 2409.12 ch. 40 (effective 2021-08-11), sec. 41.1, stratum standard {STRATUM_STD:.0f} % of volume for tree-measurement sales ({STRATUM_STD_SCALED:.0f} % scaled; the national text 41.1(5)(b) reads {STRATUM_STD_NATIONAL:.0f} %), binding for any stratum over {STRATUM_SHARE_PCT:.0f} % of total sale volume and shown for information otherwise; "
+                       f"sec. 41.3, {MIN_MEASURED_TREES} measured trees per major species (10 % or more of sale value; one stumpage rate, so value share equals volume share) and {PRACTICE_MIN_PLOTS} plots minimum. Measured trees are tally trees with a valid code, DBH in range and a height. The basal-area error is reference only. Stand-summary BA counts every tallied tree (plot count x BAF); the stand and stock tables drop records flagged by QA, such as an out-of-range DBH, so the two can differ by a few tenths. Sources and URLs: cruise_data.xlsx, Standards and assumptions.", FN)]
     # Table 2: stand table by DBH class; Table 3: stock table by species, side by side
     rows2 = [["DBH class, in", "Trees", "TPA", "BA", "cu ft", "MBF"]] + [[f"{k}-{k + DBH_CLASS - 1:.0f}.9", c["n"], f"{c['tpa']:.1f}", f"{c['ba']:.1f}", f"{c['vol']:.0f}", f"{c['vol'] / 1000 * BF_PER_CF:.1f}"] for k, c in sorted(m["cls_stat"].items())]
     rows2.append(["All", sum(c["n"] for c in m["cls_stat"].values()), f"{m['tpa']:.1f}", f"{m['ba']:.1f}", f"{m['cuft']:.0f}", f"{m['mbf']:.1f}"])
@@ -437,7 +505,8 @@ def build_page(u, g):
     page += [side, Paragraph("Trees: tally trees. TPA, BA (sq ft/ac), cubic feet and Scribner MBF per acre by BAF expansion. Species codes: PP ponderosa pine, WF white fir, DF Douglas-fir, SP sugar pine, IC incense-cedar.", FN)]
     page += [Spacer(1, 4), Image(mp, width=4.2 * inch, height=3.2 * inch), Paragraph("Figure 1. Plot locations with QA status.", FN), Spacer(1, 4)]
     fl = list(dict.fromkeys((p["plot"], f) for p in ps for f in flags.get(p["plot"], [])))
-    page.append(Paragraph("<b>QA findings</b>: " + (f"{len(fl)} item(s) for crew follow-up" if fl else "none; unit accepted") + ("" if m["meets"] else "; volume sampling error exceeds the stratum standard") + ("" if m["practice_ok"] else f"; {PRACTICE_MIN_PLOTS - m['plots']} more plots to meet the 20-plot local practice"), B))
+    page.append(Paragraph("<b>QA findings</b>: " + (f"{len(fl)} item(s) for crew follow-up" if fl else "none; unit accepted") + ("" if m["meets"] else f"; volume sampling error exceeds the {STRATUM_STD:.0f} % stratum standard" + ("" if m["binds"] else " (shown for information: unit under 10 % of sale volume)"))
+                          + ("" if m["trees_ok"] else f"; under the R5 {MIN_MEASURED_TREES} measured trees per major species for " + ", ".join(m["trees_short"]) + " (sec. 41.3)") + ("" if m["practice_ok"] else f"; {PRACTICE_MIN_PLOTS - m['plots']} more plots to reach the R5 {PRACTICE_MIN_PLOTS}-plot minimum (sec. 41.3)"), B))
     if fl:
         ft = Table([["Plot", "Finding"]] + fl, colWidths=[0.9 * inch, 6.3 * inch]); ft.setStyle(tstyle(extra=[("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f6e0dc"))])); page.append(ft)
     rows = [["Plot", "Trees in", "BA sq ft/ac", "Slope %", "Status"]] + [[p["plot"], p["n_trees"], f"{p['n_trees'] * BAF:.0f}", p["slope"], "FLAG" if p["plot"] in flags else "ok"] for p in ps]
@@ -453,25 +522,32 @@ for u, g in units:
     SimpleDocTemplate(os.path.join(OUT, f"Unit_{u['unit_id']}_Review.pdf"), pagesize=letter, leftMargin=0.6 * inch, rightMargin=0.6 * inch, topMargin=0.6 * inch, bottomMargin=0.6 * inch, title=f"Unit {u['unit_id']} field data review", author="William Steinley").build(page, onFirstPage=watermark, onLaterPages=watermark)
     story += build_page(u, g) + [PageBreak()]      # fresh flowables: a built table cannot be reused
 
-qa_rows = [["Unit", "Method", "Acres", "Plots", "cu ft/ac", "vol_cv", "vol_se95", "BA", "ba_cv", "ba_se95", "t", "Std %", "Design", "20-plot", "QA flags", "Status"]]
+qa_rows = [["Unit", "Method", "Acres", "Plots", "cu ft/ac", "vol_cv", "vol_se95", "BA", "ba_cv", "ba_se95", "t", "Std %", "Design", "Share %", "Binds", "R5 20 trees", "R5 20-plot", "QA flags", "Status"]]
 for u, g in units:
     m = M[u["unit_id"]]
     if not m:
         continue
     nf = len({(p["plot"], f) for p in plots if p["unit_id"] == u["unit_id"] for f in flags.get(p["plot"], [])})
     qa_rows.append([u["unit_id"], u["method"], f"{u['acres']:.0f}", m["plots"], f"{m['cuft']:.0f}", f"{m['vol_cv']:.0f}", f"{m['vol_se95']:.1f}", f"{m['ba']:.0f}", f"{m['ba_cv']:.0f}", f"{m['ba_se95']:.1f}", f"{m['tval']:.2f}", f"{m['se_std']:.0f}",
-                    "meets" if m["meets"] else "fails", "ok" if m["practice_ok"] else "short", nf, "accepted" if (nf == 0 and m["meets"]) else "follow-up"])
-qt = Table(qa_rows, repeatRows=1); qt.setStyle(tstyle(size=7.5, extra=[("ALIGN", (2, 0), (-2, -1), "RIGHT")] + [("BACKGROUND", (0, i), (-1, i), colors.HexColor("#fbe9e2")) for i, r in enumerate(qa_rows) if i and r[-1] == "follow-up"]))
+                    "meets" if m["meets"] else "fails", f"{m['share']:.1f}", "yes" if m["binds"] else "info", "ok" if m["trees_ok"] else "short", "ok" if m["practice_ok"] else "short", nf, "accepted" if (nf == 0 and m["meets"]) else "follow-up"])
+qt = Table(qa_rows, repeatRows=1); qt.setStyle(tstyle(size=7.5, extra=[("ALIGN", (2, 0), (-2, -1), "RIGHT"), ("LEFTPADDING", (0, 0), (-1, -1), 3), ("RIGHTPADDING", (0, 0), (-1, -1), 3)] + [("BACKGROUND", (0, i), (-1, i), colors.HexColor("#fbe9e2")) for i, r in enumerate(qa_rows) if i and r[-1] == "follow-up"]))
 front = [Paragraph("Field Data Review, Sale-level QA Summary", H),
          Paragraph(f"Mohawk Valley West Slope demonstration. {len(plots)} plots, {len(trees)} trees, BAF {BAF:.0f} on a {GRID:.0f} ft grid across {len(units)} units ({tot_ac:,.0f} gross ac, {tot_net:,.0f} net ac after stream exclusion zones). "
+                   "Plots tally all trees, so this is a pre-marking stand exam; the sale-cruise standards are applied as if the whole tallied volume were designated for cutting. "
+                   f"Standards are those of Region 5 Supplement 2409.12-2021-4 to FSH 2409.12 ch. 40 (effective 2021-08-11), which replaces the national sec. 41.1 figures for a Plumas sale. "
                    f"<b>Sale as a whole</b> (stratified by unit, area weights, t = 2): net cubic volume {sale_vol:,.0f} cu ft/ac, sampling error {sale_vol_se95:.1f} % at 95 % confidence (basal area {sale_ba:.0f} sq ft/ac, {sale_ba_se95:.1f} %, reference only). "
-                   f"Exhibit 01 volume error standard {sale_std} % for a tree-measurement sale valued at about ${sale_value:,.0f} on net acres ({sale_mbf:,.0f} MBF at ${STUMPAGE_PER_MBF:.2f}/MBF, the Region 5 FY2025 average sold value, Forest Service Cut and Sold report; "
-                   f"{sale_mbf_gross:,.0f} MBF, ${sale_value_gross:,.0f} on gross acres): <b>{'MEETS' if sale_meets else 'FAILS'}</b>. "
-                   f"<b>Strata</b>: each unit's volume sampling error is tested against the {STRATUM_STD:.0f} % stratum volume error standard for tree-measurement sales (FSH 2409.12 ch. 40, sec. 41.1(5)(b)). The basal-area error is listed for reference. The 20-plot column reports the 20-plot local practice, not a handbook standard. "
+                   f"R5 sec. 41.1 volume error standard {sale_std} % for a tree-measurement sale valued at about ${sale_value:,.0f} on net acres ({sale_mbf:,.0f} MBF at ${STUMPAGE_PER_MBF:.2f}/MBF, the Region 5 FY2025 average sold value, Forest Service Cut and Sold report; "
+                   f"{sale_mbf_gross:,.0f} MBF, ${sale_value_gross:,.0f} on gross acres): <b>{'MEETS' if sale_meets else 'FAILS'}</b>. Basis: {sale_basis}; the national exhibit 01 tier for this value is {sale_std_national} %. "
+                   f"<b>Strata</b>: each unit's volume sampling error is tested against the R5 sec. 41.1 stratum standard of {STRATUM_STD:.0f} % of volume for tree-measurement sales ({STRATUM_STD_SCALED:.0f} % scaled; national text 41.1(5)(b): {STRATUM_STD_NATIONAL:.0f} %). "
+                   f"The standard binds for any stratum over {STRATUM_SHARE_PCT:.0f} % of total sale volume (Share %, Binds columns); smaller units are tested for information. {sum(1 for w, m, u in est if m['meets'])} of {len(est)} units meet it, worst {max(m['vol_se95'] for w, m, u in est):.1f} %; the standard binds for {sum(1 for w, m, u in est if m['binds'])} unit(s). The basal-area error is listed for reference. "
+                   f"<b>Measured trees</b> (R5 sec. 41.3): at least {MIN_MEASURED_TREES} measured trees per major species, major being {MAJOR_SPECIES_PCT:.0f} % or more of sale value (one stumpage rate, so value share equals net-acre volume share): " + ", ".join(f"{k} {sale_sp_share[k]:.1f} %" for k in major_species) + ". "
+                   f"Sale counts " + ", ".join(f"{k} {sale_measured[k]}" for k in SPECIES) + f": <b>{'MEETS' if sale_trees_ok else 'FAILS'}</b>; {sum(1 for w, m, u in est if m['trees_ok'])} of {len(est)} units meet it on their own (R5 20 trees column). "
+                   f"<b>Plots</b>: the R5 {PRACTICE_MIN_PLOTS}-plot minimum for an area-based cruise (sec. 41.3); {sum(1 for w, m, u in est if m['practice_ok'])} of {len(est)} units have it (R5 20-plot column). "
                    f"QA flags are plots that failed a record check: {len(found)} flagged, {sum(1 for e in planted if e['plot'] in found)} of {len(planted)} planted errors caught.", B), Spacer(1, 8),
          Paragraph("TABLE A. CRUISE STATISTICS AND QA STATUS BY UNIT (STRATUM)", TT), qt,
          Paragraph("cu ft/ac: net cubic volume per acre (CVTS net of defect). vol_cv, ba_cv: coefficient of variation (%) of plot volume and plot basal area. vol_se95, ba_se95: sampling error (%), t x standard error / mean at 95 % confidence, Student's t on n-1 df. "
-                   "Std %: stratum volume error standard. Design: vol_se95 against Std %. BA in sq ft/ac.", FN), PageBreak()]
+                   f"Std %: R5 stratum volume error standard. Design: vol_se95 against Std %. Share %: unit share of sale volume on net acres; Binds: yes where the share exceeds {STRATUM_SHARE_PCT:.0f} %, info otherwise. R5 20 trees: the R5 {MIN_MEASURED_TREES} measured trees per major species (by sale value), counted within the unit. R5 20-plot: the R5 {PRACTICE_MIN_PLOTS}-plot minimum (sec. 41.3). BA in sq ft/ac. "
+                   f"Sources: {R5_SUPP_URL} ; {FSH_URL}", FN), PageBreak()]
 merged.build(front + story, onFirstPage=watermark, onLaterPages=watermark)
 csv_rows = [qa_rows[0] + ["data"]] + [r + ["simulated"] for r in qa_rows[1:]]      # data column marks every row as simulated
 open(os.path.join(OUT, "qa_summary.csv"), "w", newline="").write("\n".join(",".join(str(c) for c in r) for r in csv_rows) + "\n")

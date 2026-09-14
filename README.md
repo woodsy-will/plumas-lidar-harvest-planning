@@ -3,10 +3,10 @@
 Harvest-unit planning on 1,816 acres of the Community Protection treatment block on the Plumas National Forest,
 west slope of Mohawk Valley, from USGS 3DEP LiDAR flown in 2018 and public vector data. Products: terrain and
 canopy rasters, 24 demonstration units, a cable-yarding screen, a 25-sheet 11x17 unit map series, and field-data review
-sheets for a simulated cruise. The workflow follows the harvest-unit planning I did as a Forester III on National Forest projects,
+sheets for a simulated cruise. The workflow follows the harvest-unit planning I worked on as a Forester III on National Forest projects,
 rebuilt here on public data.
 
-I did this kind of work for a contractor on federal timber sales in this landscape. Those deliverables belong to
+I worked on federal timber sales of this kind for a contractor in this landscape. Those deliverables belong to
 the contractor and the Forest Service and none of them appear here. Every number here was computed from public sources by the scripts in [`scripts/`](scripts/). The units are demonstration polygons drawn by the rules in
 [`docs/methods.md`](docs/methods.md). They are not a Forest Service proposal. No field verification has been done.
 
@@ -20,9 +20,13 @@ Interactive map: https://woodsy-will.github.io/projects/plumas-lidar-harvest-pla
 
 ## Area
 
-The Community Protection (Central and West Slope, decision signed 2025) treatment block on National Forest
-land nearest Whitehawk Ranch, Clio, California: 1,816 acres on the west slope of Mohawk Valley, buffered
-300 m for terrain context. The selection rule is written into `scripts/01_get_data.py` and picks the same block every run.
+A treatment block of the Community Protection - Central and West Slope project (Plumas National Forest,
+USFS project 62873). The project has two decisions: one signed September 10, 2023 for the La Porte and Greater
+Mohawk areas, and one signed July 1, 2025 for the remainder. The block used here is the one on National Forest
+land nearest Whitehawk Ranch, Clio, California (T22N R12E, MDB&M): 1,816 acres on the west slope of Mohawk
+Valley, buffered 300 m for terrain context. In the Forest Service EDW project-area layer, which carries one
+polygon per decision, the block lies entirely inside the July 2025 decision polygon and adjoins the boundary of the
+September 2023 polygon. The selection rule is written into `scripts/01_get_data.py` and picks the same block every run.
 
 ## Public inputs
 
@@ -107,18 +111,24 @@ pass caught all six and raised one further flag.
 Each unit gets a review sheet. It carries stand density (basal area, trees per acre, QMD, stand density index
 against the mixed-conifer maximum), CWHR size and density class, a sawtimber and biomass split, a leave target
 at 35 % of the basal-area-weighted FVS maximum SDI, a stand table by DBH class, a stock table by species, a
-cruise design check with Student's t against the FSH 2409.12 standards (40 % per stratum, exhibit 01 for the
-sale as a whole), a plot map, and the findings a crew lead would hand back. Sampling error is computed on plot
-net cubic volume per acre, the quantity the handbook's error standards apply to (sec. 41.1(5)(a) and (b)). The
-basal-area error is kept as a secondary figure.
+cruise design check with Student's t against the FSH 2409.12 sampling-error standards as supplemented for
+Region 5 (30 % per stratum and 10 % for the sale as a whole, tree-measurement sale), a plot map, and the findings
+a crew lead would hand back. Sampling error is computed on plot net cubic volume per acre, the quantity the
+handbook's error standards apply to (sec. 41.1). The basal-area error is kept as a secondary figure. The
+simulated plots tally every tree, so the exercise is a pre-marking stand exam with the sale-cruise error
+standards applied as if the whole tallied volume were designated for cutting.
 
 Every page carries a SIMULATED DATA watermark, the cruiser code is SIM, and the workbook opens with a READ ME
 sheet saying the same.
 
-A sale-level QA page opens the merged review PDF. 24 of 24 units meet the 40 % stratum standard on volume
-(unit errors 4.5 to 22.9 %; unit 101 10.4 %). The sale as a whole has a volume sampling error of 2.0 %
-against its 10 % standard and meets it; the sale is placed with the Region 5 FY2025 sold average of $33.63/MBF on
-50,108 MBF over net acres. Four units fall short of the 20-plot local practice, which is not a handbook standard.
+A sale-level QA page opens the merged review PDF. 24 of 24 units meet the Region 5 stratum standard of 30 %
+on volume for a tree-measurement sale (the national figure is 40 %); unit errors run 4.5 to 22.9 %, with unit
+401 the highest and unit 101 at 10.4 %. The sale as a whole has a volume sampling error of 2.0 % against the
+10 % standard for a tree-measurement sale valued at $250,000 or more, and meets it; the sale is placed with the
+Region 5 FY2025 sold average of $33.63/MBF on 50,108 MBF over net acres, about $1.7 million. The Region 5
+supplement also sets a minimum of 20 plots for an area-based cruise and at least 20 measured trees for each
+major species or species group, a major species being one that makes up 10 % or more of the sale value. Four
+units fall short of 20 plots; the measured-tree count by species is reported on the review sheets.
 
 ### Standards followed
 
@@ -137,8 +147,11 @@ Cable screen definitions and the downhill-yarding rule are from the Forest Servi
 guide; the deflection and tension relationship from the *Best Practice Guidelines for Cable Logging* (FITEC).
 Stream widths from the Sierra Nevada Forest Plan Amendment. Canopy threshold at the ASPRS 2 m vegetation
 boundary. Cruise sampling error is computed on net cubic volume per acre and tested against the FSH 2409.12
-sec. 41.1 volume error standards (40 % per stratum, exhibit 01 for the sale as a whole on net acres), with the
-basal-area error kept as a secondary figure. The 20-plot count is a local practice, not a handbook standard.
+sec. 41.1 volume error standards as supplemented for the Pacific Southwest Region (R5 Supplement 2409.12-2021-4,
+effective August 11, 2021): 30 % per stratum for a tree-measurement sale, where the national handbook says 40 %,
+and 10 % for the sale as a whole at an estimated value of $250,000 or more, with the national exhibit 01 tiers
+applying to smaller sales. The basal-area error is kept as a secondary figure. The minimums of 20 plots for an
+area-based cruise and 20 measured trees per major species come from sec. 41.3 of the same supplement.
 Details and citations in [`docs/methods.md`](docs/methods.md).
 
 ## Outputs

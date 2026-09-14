@@ -144,9 +144,9 @@ dominant height, each with title, legend or color ramp, one-mile scale bar, nort
   the selected landings. Both are blank where no corridor is feasible.
 - `output/review/cruise_data.xlsx`: a READ ME sheet first. Its first cell states that every plot and tree is simulated from LiDAR canopy metrics with planted
   recording errors (not field data) and lists the six data sheets. Then Plots, Trees, Unit summary, Stand tables, Stock tables and Standards and assumptions.
-  Plots carry cruiser `SIM` and date `simulated`. The unit summary carries gross and net acres, net cubic volume per acre with its CV, sampling error at 95 %, stratum standard and plots needed (the FSH 2409.12 volume standard), the same set for basal area, TPA, QMD, SDI, CWHR, sawtimber and biomass BA, biomass green
+  Plots carry cruiser `SIM` and date `simulated`. The unit summary carries gross and net acres, net cubic volume per acre with its CV, sampling error at 95 %, stratum standard and plots needed (the FSH 2409.12 volume standard as supplemented for Region 5, 30 % per stratum for a tree-measurement sale), the same set for basal area, TPA, QMD, SDI, CWHR, sawtimber and biomass BA, biomass green
   tons per acre, CV, plots needed and the standard check. Standards and assumptions has columns item, value, source and url.
-- `output/review/qa_summary.csv`: the sale-level QA table printed on the first page of `Unit_Reviews.pdf` (unit, method, acres, plots, cu ft/ac, volume CV and sampling error at 95 %, BA with its CV and error, t, stratum standard, design result on volume, 20-plot local practice, QA flags, status), plus a `data` column whose value is `simulated`
+- `output/review/qa_summary.csv`: the sale-level QA table printed on the first page of `Unit_Reviews.pdf` (unit, method, acres, plots, cu ft/ac, volume CV and sampling error at 95 %, BA with its CV and error, t, stratum standard, design result on volume, share of sale volume and whether the stratum standard binds, the Region 5 20-measured-trees and 20-plot checks, QA flags, status), plus a `data` column whose value is `simulated`
   on every row.
 
 ## Note on unit slope figures
