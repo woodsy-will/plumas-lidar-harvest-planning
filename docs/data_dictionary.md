@@ -5,17 +5,17 @@ written by `scripts/08_package_gis.py`. The same layers exist in the working fil
 `data/work/cable.gpkg` and `data/work/cruise_plots.gpkg`. Every layer carries its description in
 `gpkg_contents`. The `project_metadata` table in the package holds the summary below.
 
-## Project metadata (FGDC / ISO 19115 summary fields)
+## Project metadata (`project_metadata` table: key / value summary fields, not a `gpkg_metadata` ISO record)
 
 | Field | Value |
 |---|---|
 | Title | Mohawk Valley West Slope: LiDAR-based harvest-unit planning (demonstration) |
 | Abstract | Harvest-unit layout, cable-yarding screen and simulated cruise for the Community Protection treatment block nearest Whitehawk Ranch, Plumas National Forest, computed from public data only |
 | Purpose | Portfolio demonstration of a planning workflow. Not a Forest Service proposal; no field verification |
-| Author, date | William Steinley, 2026-09-12 |
-| Spatial reference | EPSG:2226, NAD83 / California zone 2, US survey feet; heights in feet |
+| Author, date | William Steinley; date = packaging date (2026-09-14 for this release) |
+| Spatial reference | EPSG:2226, NAD83 / California zone 2, US survey feet; vertical datum NAVD88, meters converted to US survey feet |
 | LiDAR | USGS 3DEP CA_NoCAL_Wildfires_PlumasNF_B2_2018, QL1, flown 2018, read from the USGS Entwine copy; about 650 million points over 3,948 ac |
-| Vector sources | USFS EDW Activity Project Areas and Road Core; BLM Surface Management Agency and CadNSDI PLSS; USGS NHD at 1:24,000; Census TIGER roads; all downloaded September 2026 |
+| Vector sources | USFS EDW Activity Project Areas and Road Core; BLM Surface Management Agency and CadNSDI PLSS; USGS NHD at 1:24,000; Census TIGER roads (TIGER2024); all downloaded September 2026 |
 | Accuracy | DTM at 3 ft cells from class 2 returns; planning slope from a 15 ft smoothed DTM averaged over 99 ft. Unit boundaries are model output and are not surveyed lines. NHD stream classes are unverified |
 | Lineage | scripts 01 to 08 in this repository; rules and thresholds in `docs/methods.md` |
 | Constraints | Public-domain inputs. Units, corridors and plots are demonstration products and must not be used for operations |

@@ -80,7 +80,7 @@ okabe = ListedColormap(["#009E73", "#F0E442", "#D55E00", "#7a2a00"]); norm = Bou
 fig, ax = frame("Planning slope, percent (15 ft smoothed DTM, averaged over 99 ft) in the yarding-system classes")
 ax.imshow(slope, cmap=okabe, norm=norm, extent=ext, alpha=0.6)
 ax.legend(handles=[Patch(color=c, label=l) for c, l in (("#009E73", "0 to 35 %: ground-based"), ("#F0E442", "35 to 50 %: marginal"), ("#D55E00", "50 to 100 %: cable"), ("#7a2a00", "over 100 %: not operable"))], loc="lower right", fontsize=9, framealpha=0.9)
-finish(fig, ax, "slope_plan_pct.png", "The raw 3 ft slope under this canopy averages 87 % (interpolation noise) and is not used for planning.")
+finish(fig, ax, "slope_plan_pct.png", "The raw 3 ft slope under this canopy averages 88 % (interpolation noise) and is not used for planning.")
 
 ycls, _ = read("yarding_class.tif")
 fig, ax = frame("Yarding class from planning slope: 1 ground-based (35 % and under), 2 marginal (35 to 50 %), 3 cable (over 50 %)")

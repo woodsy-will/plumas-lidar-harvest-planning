@@ -1,8 +1,9 @@
 """02_build_terrain.py - LiDAR terrain and canopy products for the AOI.
 
-Per USGS tile (PDAL, streaming): reproject EPSG:5070 -> EPSG:2226 (California State Plane Zone 2, US survey
-feet, the coordinate system used on Plumas timber sale maps), convert Z from meters to feet, crop to the AOI,
-then write
+Per batch of Entwine node files (PDAL, streaming): reproject EPSG:3857 (the coordinate system of the USGS Entwine
+copy the run used; the staged USGS LAZ tiles are EPSG:5070 and take the same path) -> EPSG:2226 (California State
+Plane Zone 2, US survey feet, the coordinate system used on Plumas timber sale maps), convert Z from meters to feet,
+crop to the AOI, then write
   dtm   ground returns (class 2), IDW, 3 ft cells
   dsm   first returns, max, 3 ft cells
   chm   height above ground of all non-noise returns (hag_dem against the DTM), max, 3 ft cells, capped at 300 ft
@@ -10,7 +11,9 @@ Tiles are mosaicked with GDAL, then derived:
   slope_pct, aspect_deg, hillshade, canopy_cover_66ft (share of CHM > 6.5 ft in a 66 ft window),
   dom_height_66ft (95th percentile CHM in a 66 ft window), yarding_class (1 ground-based <= 35 %,
   2 marginal 35-50 %, 3 cable > 50 %, from slope smoothed over a 99 ft window).
-Run: python-qgis-ltr.bat scripts/02_build_terrain.py
+Run: python-qgis-ltr.bat scripts/02_build_terrain.py [--max-batches N] [--derivatives-only]
+  --derivatives-only skips the PDAL batch stage (about 2 h) and rebuilds the mosaics and every derived product
+  from the per-batch rasters already in data/work.
 """
 import glob, json, os, subprocess, sys, time
 import numpy as np
@@ -51,8 +54,15 @@ def writer(name, dim="Z", out="max", bounds=None):
 s3857 = osr.SpatialReference(); s3857.ImportFromEPSG(3857); s3857.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
 merc_to_sp = osr.CoordinateTransformation(s3857, sp)
 ept_meta = None
-for cand in glob.glob(os.path.join(WORK, "ept_CA_NoCAL_Wildfires_PlumasNF_B2_2018.json")):
-    ept_meta = json.load(open(cand)); break
+ept_meta_p = os.path.join(WORK, "ept_CA_NoCAL_Wildfires_PlumasNF_B2_2018.json")   # ept.json saved by ept_fetch.py
+if os.path.exists(ept_meta_p):
+    ept_meta = json.load(open(ept_meta_p))
+nodes_list = os.path.join(WORK, "ept_nodes.txt")   # machine-specific absolute paths; kept out of git
+if os.path.exists(nodes_list) and ept_meta is None:
+    # without the octree bounds every batch would fall back to an AOI-sized raster (slow, and the batch rasters
+    # would overlap); fail loudly instead
+    raise SystemExit(f"{ept_meta_p} is missing but {nodes_list} exists: re-run scripts/ept_fetch.py (it saves ept.json there) "
+                     "or download https://s3-us-west-2.amazonaws.com/usgs-lidar-public/CA_NoCAL_Wildfires_PlumasNF_B2_2018/ept.json to that path")
 
 
 def batch_bounds(tag):
@@ -76,7 +86,6 @@ def ancestor(key, depth=8):
     s = 2 ** (d - depth) if d >= depth else 1
     return f"{depth}-{x // s}-{y // s}-{z // s}" if d >= depth else f"top-{os.path.basename(key)[:-4]}"
 
-nodes_list = os.path.join(WORK, "ept_nodes.txt")   # machine-specific absolute paths; kept out of git
 if os.path.exists(nodes_list):
     batches = {}
     for p in open(nodes_list).read().split("\n"):
@@ -92,6 +101,8 @@ else:
 print(f"{len(jobs)} batches"); t0 = time.time()
 max_batches = int(sys.argv[sys.argv.index("--max-batches") + 1]) if "--max-batches" in sys.argv else None
 done_now = 0
+if "--derivatives-only" in sys.argv:
+    jobs = []; print("--derivatives-only: PDAL batch stage skipped, using the batch rasters in data/work")
 for i, (tag, paths) in enumerate(jobs, 1):
     dtm, dsm, chm = (os.path.join(WORK, f"tile_{k}_{tag}.tif") for k in ("dtm", "dsm", "chm"))
     if os.path.exists(chm): continue
@@ -143,29 +154,53 @@ def write_like(name, arr, like, nodata=-9999.0, dtype=gdal.GDT_Float32):
     out.SetGeoTransform(like.GetGeoTransform()); out.SetProjection(like.GetProjection()); b = out.GetRasterBand(1)
     b.WriteArray(np.where(np.isnan(arr), nodata, arr)); b.SetNoDataValue(nodata); out.FlushCache(); return os.path.join(WORK, name)
 
-chm, chm_ds = read(chm_p); chm = np.where(np.isnan(chm), 0, chm)
+# The processed area (AOI) is the set of valid DTM cells; after FillNodata it has no internal holes, so every
+# nodata cell lies outside the AOI rim. Filling that nodata with a constant before filtering (the first version
+# used the mean elevation for the DTM and 0 for the CHM) put a cliff at the rim, and the 15 ft Gaussian and the
+# 99 ft averaging spread it inward: planning slopes over 1,000 % within about 110 ft of the rim. Two fixes:
+#   1. the DTM and CHM are extended outward by their nearest valid cell before any filter (no cliff), and
+#   2. the window means (canopy cover, planning slope) are normalized convolutions that average valid cells only.
+# Cells more than about 110 ft inside the rim see exactly the same window contents as before; the units lie more
+# than 900 ft inside it.
+dtm_a, dtm_ds = read(dtm_p); aoi = ~np.isnan(dtm_a); aoi_f = aoi.astype("float32")
+near = ndimage.distance_transform_edt(~aoi, return_distances=False, return_indices=True)   # row, col of the nearest valid cell
+def nearest_fill(a):
+    """Extend a (nan-free inside the AOI) outward by the nearest valid cell."""
+    return a[near[0], near[1]]
+def window_mean(a, size):
+    """Mean of a over the valid cells of a size x size window (normalized convolution); nan outside the AOI."""
+    w = ndimage.uniform_filter(aoi_f, size=size, mode="nearest")
+    return np.where(aoi, ndimage.uniform_filter(a * aoi_f, size=size, mode="nearest") / np.maximum(w, 1e-6), np.nan)
+
+chm, chm_ds = read(chm_p); chm = np.where(np.isnan(chm), 0, chm)   # no non-noise return in an AOI cell: 0 ft (bare ground)
 win = int(round(66 / CELL))
-cover = ndimage.uniform_filter((chm > 6.5).astype("float32"), size=win, mode="nearest")
+cover = window_mean((chm > 6.5).astype("float32"), win)
 write_like("canopy_cover_66ft.tif", cover, chm_ds)
-dom = ndimage.percentile_filter(chm, 95, size=win, mode="nearest")
+dom = np.where(aoi, ndimage.percentile_filter(nearest_fill(chm), 95, size=win, mode="nearest"), np.nan)
 write_like("dom_height_66ft.tif", dom, chm_ds)
 slope, slope_ds = read(slope_p)
 # planning slope: gradient of a DTM smoothed with a 15 ft Gaussian, then averaged over 99 ft, so single
 # cut banks, boulders and interpolation noise under dense canopy do not drive the yarding class
-dtm_a, dtm_ds = read(dtm_p)
-dtm_sm = ndimage.gaussian_filter(np.nan_to_num(dtm_a, nan=float(np.nanmean(dtm_a))), sigma=15 / CELL)
-gy, gx = np.gradient(dtm_sm, CELL); slope_plan = np.hypot(gx, gy) * 100
-slope_plan = ndimage.uniform_filter(slope_plan, size=int(round(99 / CELL)), mode="nearest")
-slope_plan = np.where(np.isnan(dtm_a), np.nan, slope_plan).astype("float32")
+dtm_sm = ndimage.gaussian_filter(nearest_fill(dtm_a), sigma=15 / CELL)
+gy, gx = np.gradient(dtm_sm, CELL); slope_plan = np.hypot(gx, gy) * 100; del dtm_sm, gx, gy
+slope_plan = window_mean(slope_plan, int(round(99 / CELL))).astype("float32")
 write_like("slope_plan_pct.tif", slope_plan, dtm_ds)
 slope_s = np.nan_to_num(slope_plan, nan=0)
 ycls = np.where(np.isnan(slope), np.nan, np.where(slope_s <= 35, 1, np.where(slope_s <= 50, 2, 3))).astype("float32")
-write_like("yarding_class.tif", ycls, slope_ds, dtype=gdal.GDT_Float32)
-valid = ~np.isnan(slope)
+write_like("yarding_class.tif", ycls, slope_ds, dtype=gdal.GDT_Float32); del slope_s, near
+# Summary statistics exclude a 150 ft rim inside the AOI boundary (the array edge counts as boundary): the 99 ft
+# window means there are averages over partial windows, and the rim is terrain context outside the treatment
+# block anyway. The elevation range is reported over the whole processed area, where no filter is involved.
+RIM_FT = 150
+rim = ndimage.distance_transform_edt(np.pad(aoi, 1, constant_values=False))[1:-1, 1:-1] * CELL < RIM_FT
+valid = ~np.isnan(slope); interior = valid & ~rim; del rim
 stats = dict(cells=int(valid.sum()), acres=round(float(valid.sum()) * CELL * CELL / 43560, 1),
-             slope_mean_pct=round(float(np.nanmean(slope)), 1), slope_plan_median_pct=round(float(np.nanmedian(slope_plan)), 1), pct_ground_based=round(float((ycls[valid] == 1).mean() * 100), 1),
-             pct_marginal=round(float((ycls[valid] == 2).mean() * 100), 1), pct_cable=round(float((ycls[valid] == 3).mean() * 100), 1),
-             canopy_cover_mean=round(float(cover[valid].mean() * 100), 1), chm_p95_ft=round(float(np.percentile(chm[valid], 95)), 1),
+             rim_excluded_ft=RIM_FT, interior_acres=round(float(interior.sum()) * CELL * CELL / 43560, 1),
+             slope_mean_pct=round(float(np.nanmean(slope[interior])), 1), slope_plan_median_pct=round(float(np.nanmedian(slope_plan[interior])), 1),
+             pct_ground_based=round(float((ycls[interior] == 1).mean() * 100), 1),
+             pct_marginal=round(float((ycls[interior] == 2).mean() * 100), 1), pct_cable=round(float((ycls[interior] == 3).mean() * 100), 1),
+             canopy_cover_mean=round(float(np.nanmean(cover[interior]) * 100), 1), chm_p95_ft=round(float(np.percentile(chm[interior], 95)), 1),
+             slope_plan_max_pct=round(float(np.nanmax(slope_plan)), 1), slope_plan_max_interior_pct=round(float(np.nanmax(slope_plan[interior])), 1),
              dtm_min_ft=round(float(np.nanmin(dtm_a)), 0), dtm_max_ft=round(float(np.nanmax(dtm_a)), 0))
 json.dump(stats, open(os.path.join(WORK, "terrain_summary.json"), "w"), indent=1); print(stats)
 print(f"done in {time.time()-t0:.0f}s")

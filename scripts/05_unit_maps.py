@@ -233,10 +233,11 @@ def make_layout(name, feat=None, extent=None, scale=None):
         for f in sorted(units.getFeatures(), key=lambda x: int(x["unit_id"])):
             dd = dict(zip([x.name() for x in units.fields()], f.attributes())); s = summary.get(int(dd["unit_id"]), {}); tg += round(dd["acres"], 2); tn += round(dd["net_acres"], 2)
             short = {"Small yarder": "small yarder", "Medium yarder": "medium yarder", "Long-span yarder": "long-span", "Intermediate support needed": "interm. support", "No feasible corridor": "no corridor"}
-            scr = (f"{float(s.get('coverage_pct', 0)):.0f} % coverage, {short.get(s.get('equipment', ''), s.get('equipment', ''))}" if dd["method"] == "Cable" else "ground-based") if s else ""
+            # kept short: the column is pw - 76 = 34 mm at 7 pt, and "61 % coverage, interm. support" wrapped onto the next row
+            scr = (f"{float(s.get('coverage_pct', 0)):.0f} %, {short.get(s.get('equipment', ''), s.get('equipment', ''))}" if dd["method"] == "Cable" else "ground-based") if s else ""
             row([str(dd["unit_id"]), dd["method"], f"{dd['acres']:.0f}", f"{dd['net_acres']:.0f}", f"{dd['slope_mean']:.0f}", f"{dd['cover_pct']:.0f}", scr], y); y += 4.2
         row(["Total", "", f"{int(round(tg, 2) + 0.5)}", f"{int(round(tn, 2) + 0.5)}", "", "", "24 units"], y + 1, 7, True); y += 5   # half-up so the total matches the review sheets
-        add_label(layout, "Slope is mean planning slope, percent. Canopy is cover, percent. Net acres are gross less stream equipment exclusion zones. Unit acres rounded; totals from unrounded values.", px, y, pw, 8, 6); y += 7
+        add_label(layout, "Slope is mean planning slope, percent. Canopy is cover, percent. Net acres are gross less stream equipment exclusion zones. Unit acres rounded; totals from unrounded values. Skyline screen: corridor coverage, percent, and equipment class.", px, y, pw, 10, 6); y += 9
         ly = y + 4
     leg = QgsLayoutItemLegend(layout); leg.setTitle("Legend"); leg.setAutoUpdateModel(False); leg.setLinkedMap(m)
     mdl = leg.model().rootGroup(); mdl.clear()

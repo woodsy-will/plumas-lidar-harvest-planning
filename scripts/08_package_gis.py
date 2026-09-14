@@ -2,10 +2,11 @@
 
 Bundles the vector products from planning.gpkg, cable.gpkg and cruise_plots.gpkg into one GeoPackage,
 output/gis/mohawk_west_slope.gpkg, with a layer description on every layer (gpkg_contents.description) and a
-metadata table, and writes four rasters (yarding class, planning slope, canopy cover, dominant height) alongside it
+project_metadata key / value summary table (not a gpkg_metadata ISO record), and writes four rasters (yarding class, planning slope, canopy cover, dominant height) alongside it
 as compressed, tiled GeoTIFFs with overviews. docs/data_dictionary.md documents every layer and field.
 Run: python-qgis-ltr.bat scripts/08_package_gis.py
 """
+import datetime
 import os
 import shutil
 import sqlite3
@@ -44,10 +45,10 @@ meta = [
     ("abstract", "Harvest-unit layout, cable-yarding screen and simulated cruise for the Community Protection treatment block nearest Whitehawk Ranch, Plumas National Forest, computed from public data only."),
     ("purpose", "Portfolio demonstration of a planning workflow. Not a Forest Service proposal; no field verification."),
     ("author", "William Steinley"),
-    ("date", "2026-09-10"),
-    ("crs", "EPSG:2226 NAD83 / California zone 2 (US survey feet); heights in feet"),
+    ("date", datetime.date.today().isoformat()),                  # packaging date
+    ("crs", "EPSG:2226 NAD83 / California zone 2 (US survey feet); vertical datum NAVD88, meters converted to US survey feet"),
     ("lidar", "USGS 3DEP CA_NoCAL_Wildfires_PlumasNF_B2_2018, QL1, flown 2018; read from the USGS Entwine copy; ~650 million points over 3,948 ac"),
-    ("vector_sources", "USFS EDW Activity Project Areas and Road Core; BLM Surface Management Agency and CadNSDI PLSS; USGS NHD (1:24,000); Census TIGER roads (2023); all downloaded September 2026"),
+    ("vector_sources", "USFS EDW Activity Project Areas and Road Core; BLM Surface Management Agency and CadNSDI PLSS; USGS NHD (1:24,000); Census TIGER roads (TIGER2024); all downloaded September 2026"),
     ("accuracy", "DTM at 3 ft cells from class 2 returns; planning slope from a 15 ft smoothed DTM averaged over 99 ft. Unit boundaries are model output, not surveyed lines. NHD stream classes are unverified."),
     ("lineage", "scripts 01 to 08 in github.com/woodsy-will/plumas-lidar-harvest-planning; rules and thresholds in docs/methods.md"),
     ("constraints", "Public-domain inputs. Units, corridors and plots are demonstration products and must not be used for operations."),

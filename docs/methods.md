@@ -5,8 +5,10 @@ the rules and thresholds so a reviewer can judge them. The units are a method de
 
 ## Coordinate system and units
 
-California State Plane Zone 2, NAD83, US survey feet (EPSG:2226). Heights in feet. USGS delivers the LiDAR
-in EPSG:5070 meters; it is reprojected and scaled on the way in.
+California State Plane Zone 2, NAD83, US survey feet (EPSG:2226). Heights in feet, NAVD88. The run read the
+LiDAR from the USGS Entwine copy, which is stored in EPSG:3857 (Web Mercator) meters; it is reprojected to
+EPSG:2226 and scaled to feet on the way in. (The staged USGS LAZ tiles are delivered in EPSG:5070 and would
+take the same path.)
 
 ## LiDAR source (`ept_fetch.py`)
 
@@ -29,7 +31,10 @@ LAZ in EPSG:3857 with classification intact, so the content matches the tiles.
 
 The 35 % ground-based limit and the cable ground above it follow the Forest Service logging-systems
 convention used on Region 5 timber sales. The 99 ft averaging keeps single benches or cut banks from
-flipping a class.
+flipping a class. At the edge of the processed area the DTM and CHM are extended outward by their nearest
+valid cell before filtering and the window means count only valid cells, so the smoothing does not read the
+nodata boundary as a cliff; the summary statistics in the README exclude a 150 ft rim inside that edge,
+where the windows are partial and the canopy raster ends. The units lie more than 900 ft inside it.
 
 ## Harvest-unit delineation (`03_delineate_units.py`)
 
@@ -42,7 +47,9 @@ Operable ground is the intersection of:
   intermittent, 25 ft ephemeral by NHD feature code. They stay inside the unit boundary as an internal
   restriction, as layout crews draw them, and are netted out of the treatable acreage. The wider
   riparian conservation areas (300 / 150 / 100 ft, Sierra Nevada Forest Plan Amendment) are mapped on
-  every sheet; treatment inside them is allowed under the project's design features;
+  every sheet; treatment inside them is allowed under the project's design features. The 100 / 50 / 25 ft
+  equipment-exclusion widths are my assumption, standing in for the widths set by the project's design
+  features and the Forest Plan; the project record supplies the actual widths;
 - a stand is present: canopy cover at least 30 % and dominant height at least 40 ft;
 - planning slope at or below 100 %, the practical ceiling for skyline ground. Planning slope is the
   gradient of the DTM smoothed with a 15 ft Gaussian and averaged over 99 ft, so cut banks and
@@ -263,6 +270,7 @@ range the unit lies in, and the sources.
 
 `02b_quicklooks.py` draws the terrain and canopy products with a title, legend or color ramp, scale bar and
 north arrow. `08_package_gis.py` writes the distributable GIS deliverable, `output/gis/mohawk_west_slope.gpkg`,
-with a description on every layer and a project metadata table in FGDC / ISO 19115 summary fields (title,
-abstract, purpose, spatial reference, sources, accuracy, lineage, constraints), plus the four decision rasters
+with a description on every layer (`gpkg_contents`) and a `project_metadata` summary table (title,
+abstract, purpose, spatial reference, sources, accuracy, lineage, constraints; a key / value table, not a
+`gpkg_metadata` ISO record), plus the four decision rasters
 as tiled, compressed GeoTIFFs with overviews. `docs/data_dictionary.md` defines every layer and field.

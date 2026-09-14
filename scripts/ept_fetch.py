@@ -28,7 +28,9 @@ def get(url, timeout=300):
     return urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout).read()
 
 
-ept = json.loads(get(BASE + "ept.json"))
+ept_raw = get(BASE + "ept.json"); ept = json.loads(ept_raw)
+# 02_build_terrain.py sizes each PDAL batch raster from the octree bounds in this file; keep it next to the node list
+EPT_META = os.path.join(WORK, f"ept_{PROJECT}.json"); open(EPT_META, "wb").write(ept_raw); print("ept.json saved to", EPT_META)
 b = ept["bounds"]
 print("srs:", ept["srs"].get("horizontal"), "| points:", f"{ept['points']:,}", "| span:", ept["span"], "| data:", ept["dataType"])
 

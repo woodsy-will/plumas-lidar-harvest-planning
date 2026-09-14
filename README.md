@@ -47,13 +47,15 @@ September 2023 polygon. The selection rule is written into `scripts/01_get_data.
 |---|---|
 | Area processed | 3,948 ac, 650 million points |
 | Elevation | 4,459 to 6,177 ft |
-| Planning slope, median | 22 % |
-| Ground below 35 % slope | 75 % of the area; 15 % marginal; 10 % cable ground above 50 % |
-| Canopy cover, mean | 79 % |
-| Canopy height, 95th percentile | 105 ft |
+| Planning slope, median | 21 % |
+| Ground below 35 % slope | 76 % of the area; 16 % marginal; 8 % cable ground above 50 % |
+| Canopy cover, mean | 83 % |
+| Canopy height, 95th percentile | 106 ft |
 
-The raw 3 ft slope surface under this canopy averages 87 %. That is interpolation noise. Yarding class is
-taken from the planning slope, a smoothed DTM averaged over 99 ft.
+The raw 3 ft slope surface under this canopy averages 88 %. That is interpolation noise. Yarding class is
+taken from the planning slope, a smoothed DTM averaged over 99 ft. The slope, class and canopy figures are
+computed over the 3,701 ac more than 150 ft inside the edge of the processed area, where the window filters
+see complete windows and the LiDAR canopy extends; the outer 150 ft is terrain context beyond the block.
 
 ### Harvest units
 
@@ -139,7 +141,7 @@ vector print PDF (300 dpi rasters) and as GeoPDF for Avenza. Symbology was rewor
 Service sale area map, Patterson's relief-shading guidance, Jenny and Kelso's color-vision recommendations and
 USGS topographic conventions (table in [`docs/methods.md`](docs/methods.md)). Okabe-Ito color-blind-safe palette throughout.
 
-GeoPackage deliverable with layer descriptions and FGDC / ISO 19115 summary metadata ([`docs/data_dictionary.md`](docs/data_dictionary.md)).
+GeoPackage deliverable with a `project_metadata` summary table and layer descriptions ([`docs/data_dictionary.md`](docs/data_dictionary.md)).
 Output was checked by measurement against print, web, WCAG contrast and color-vision standards (table in
 `docs/methods.md`).
 
@@ -206,12 +208,16 @@ set PY="C:\Program Files\QGIS 3.44.12\bin\python-qgis-ltr.bat"
 %PY% scripts\05_unit_maps.py         & rem ONLY_UNITS="404 101" renders a subset
 %PY% scripts\06_review_sheets.py
 %PY% scripts\07_previews.py & %PY% scripts\08_package_gis.py
+%PY% scripts\09_export_webmap.py     & rem web-map GeoJSON and yarding-class overlay to ..\woodsy-will.github.io (or OUT_DIR)
 ```
+
+`02_build_terrain.py --derivatives-only` rebuilds the mosaics and every derived raster from the per-batch PDAL
+rasters already in `data/work` without repeating the 2 h point-cloud stage.
 
 ## Software
 
-QGIS 3.44.12 (PyQGIS), GDAL 3.13, PDAL 2.10, Python 3.12, NumPy, SciPy, matplotlib, ReportLab, openpyxl,
-pypdf, PyMuPDF, Pillow, all as shipped with QGIS 3.44. No ArcGIS required. Developed on Windows 11;
+QGIS 3.44.12 (PyQGIS), GDAL 3.13, PDAL 2.10, Python 3.12, NumPy, SciPy, GeoPandas (script 09), matplotlib,
+ReportLab, openpyxl, pypdf, PyMuPDF, Pillow, all as shipped with QGIS 3.44. No ArcGIS required. Developed on Windows 11;
 the scripts reference the QGIS install path and the Windows Fonts folder for Arial.
 
 ## License and citation
