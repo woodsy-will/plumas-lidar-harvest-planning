@@ -2,7 +2,7 @@
 
 Harvest-unit planning on 1,816 acres of the Community Protection treatment block on the Plumas National Forest,
 west slope of Mohawk Valley, from USGS 3DEP LiDAR flown in 2018 and public vector data. Products: terrain and
-canopy rasters, 24 demonstration units, a cable-yarding screen, an 11x17 unit map series, and field-data review
+canopy rasters, 24 demonstration units, a cable-yarding screen, a 25-sheet 11x17 unit map series, and field-data review
 sheets for a simulated cruise. The workflow follows the harvest-unit planning I did as a Forester III on National Forest projects,
 rebuilt here on public data.
 
