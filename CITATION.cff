@@ -6,7 +6,7 @@ authors:
   - family-names: Steinley
     given-names: William
 version: "1.1"
-date-released: 2026-09-13
+date-released: 2026-09-14
 url: https://github.com/woodsy-will/plumas-lidar-harvest-planning
 repository-code: https://github.com/woodsy-will/plumas-lidar-harvest-planning
 license: MIT

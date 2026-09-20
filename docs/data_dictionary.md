@@ -120,7 +120,7 @@ Simulated cruise plots. The tree records are in `output/review/cruise_data.xlsx`
 | hillshade | Byte, GDAL multidirectional hillshade, z-factor 1 |
 | canopy_cover_66ft | share of CHM cells above 6.5 ft in a 66 ft window, 0 to 1 |
 | dom_height_66ft | 95th percentile CHM height in a 66 ft window, ft |
-| yarding_class | 1 ground-based (<= 35 %), 2 marginal (35 to 50 %), 3 cable (> 50 %) |
+| yarding_class | 1 ground-based (<= 35 %), 2 marginal (35 to 50 %), 3 cable (> 50 %); Byte, nodata 0 in the packaged copy |
 | relief_tint | Byte RGBA, hillshade multiplied into pale yarding-class tints, the base for the unit sheets |
 
 `output/gis` carries yarding_class, slope_plan_pct, canopy_cover_66ft and dom_height_66ft as tiled,

@@ -37,7 +37,7 @@ September 2023 polygon. The selection rule is written into `scripts/01_get_data.
 | Roads | USFS EDW Road Core, supplemented by Census TIGER local roads |
 | Streams, waterbodies | USGS National Hydrography Dataset |
 | PLSS | BLM CadNSDI |
-| LiDAR | USGS 3DEP CA_NoCAL_Wildfires_PlumasNF 2018, QL1, read from the USGS Entwine copy on Amazon |
+| LiDAR | USGS 3DEP CA_NoCAL_Wildfires_PlumasNF_B2_2018, QL1, read from the USGS Entwine copy on Amazon |
 
 ## Results
 
@@ -64,9 +64,9 @@ see complete windows and the LiDAR canopy extends; the outer 150 ft is terrain c
 | Method | Units | Acres | Mean slope |
 |---|---|---|---|
 | Tractor | 18 | 1,389 | 10 to 24 % |
-| Cable | 6 | 231 | 42 to 54 % |
+| Cable | 6 | 231 | 42 to 53 % |
 
-Acres by method are direct sums of the rounded unit values; the 1,621 total is from unrounded values.
+Acres by method are sums of the one-decimal unit acres (1,389.4 tractor, 231.3 cable); the 1,621 total is from unrounded values, so adding the integer acres printed on the sheets gives 1,387 and 232.
 
 Units run 30 to 116 acres and are split along ridges and draws. Stream equipment exclusion zones stay inside
 the unit boundary as an internal restriction and are netted out of treatable acres.

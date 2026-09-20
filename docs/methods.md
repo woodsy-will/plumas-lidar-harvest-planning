@@ -247,8 +247,8 @@ the measurements below come from reading the files back with PyMuPDF, GDAL and P
 
 | Item | Standard | This project |
 |---|---|---|
-| Print PDF | text and linework vector, rasters at 300 dpi, fonts embedded | unit sheets and overview: vector text (Arial embedded), 9 raster images at 300 dpi, 2.3 to 3.7 MB per unit sheet, 5.4 MB for the overview |
-| Field PDF | georeferenced; Avenza reduces maps over 4 Mpx to 150 dpi and over 12 Mpx to 72 dpi on import | `output/maps/geopdf`: QGIS GeoPDF at 200 dpi (7.5 Mpx, under the 12 Mpx step); the print PDFs also carry ISO 32000 georeferencing |
+| Print PDF | text and linework vector, rasters at 300 dpi, fonts embedded | unit sheets and overview: vector text (Arial embedded), 5 raster images at 300 dpi, 4.4 to 13.6 MB per unit sheet (median about 6.7 MB), 5.4 MB for the overview |
+| Field PDF | georeferenced; Avenza reduces maps over 4 Mpx to 150 dpi and over 12 Mpx to 72 dpi on import | `output/maps/geopdf`: QGIS GeoPDF at 200 dpi (4.2 Mpx map raster, under the 12 Mpx step); the print PDFs also carry ISO 32000 georeferencing |
 | Figures | 300 dpi for publication | all cable figures, route tables and profiles at 300 dpi; corridor maps and quicklooks at 200 dpi |
 | Web previews | sRGB, about 2,000 to 2,500 px long edge, JPEG quality 85 to 90 | 1,870 px map previews, 2,400 px figure previews, quality 88, 4:4:4 chroma so thin colored lines stay crisp |
 | Text contrast | WCAG 2.2 AA: 4.5:1 for text, 3:1 for graphics | every text and background pair measured is 5.4:1 or better; map text on the hillshade tints 8.8:1 |

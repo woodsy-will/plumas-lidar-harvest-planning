@@ -315,7 +315,10 @@ try:
     w = PdfWriter()
     for p in [os.path.join(OUT, "Overview.pdf")] + pages:
         w.append(p)
-    w.add_metadata({"/Title": "Mohawk Valley West Slope Unit Planning Map, 25-sheet series (demonstration from public data)", "/Author": "William Steinley"})
+    w.add_outline_item("Overview", 0)   # bookmarks: one per sheet so readers can jump by unit
+    for i, p in enumerate(pages, start=1):
+        w.add_outline_item("Unit " + os.path.basename(p)[5:-4], i)
+    w.add_metadata({"/Title": "Mohawk Valley West Slope Unit Planning Map, 25-sheet series (demonstration from public data)", "/Author": "William Steinley", "/Creator": "PyQGIS 3.44 layout export, merged with pypdf"})
     w.write(os.path.join(OUT, "Unit_Map_Series.pdf")); print("merged", len(pages) + 1, "pages")
 except Exception as e:
     print("merge skipped:", e)

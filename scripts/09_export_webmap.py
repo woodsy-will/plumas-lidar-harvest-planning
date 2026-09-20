@@ -47,6 +47,7 @@ def _clean(geom):
 
 def write(gdf, name, tol_ft=None, cols=None, precision=5):
     gdf = gdf.to_crs(CRS_FT)
+    full = gdf.copy()  # unsimplified copy: a feature that collapses under simplify + rounding falls back to this
     if tol_ft:
         gdf = gdf.copy()
         gdf["geometry"] = gdf.geometry.simplify(tol_ft, preserve_topology=True)
@@ -54,8 +55,11 @@ def write(gdf, name, tol_ft=None, cols=None, precision=5):
             gdf["geometry"] = gdf.geometry.buffer(0)
     if cols:
         gdf = gdf[cols + ["geometry"]]
+        full = full[cols + ["geometry"]]
     gdf = gdf.to_crs(4326)
+    full = full.to_crs(4326)
     gj = json.loads(gdf.to_json(drop_id=True))
+    gj_full = json.loads(full.to_json(drop_id=True))
 
     def rnd(c):
         if isinstance(c[0], (int, float)):
@@ -63,10 +67,16 @@ def write(gdf, name, tol_ft=None, cols=None, precision=5):
         return [rnd(x) for x in c]
 
     feats = []
-    for f in gj["features"]:
+    dropped = 0
+    for f, f_full in zip(gj["features"], gj_full["features"]):
         f["geometry"]["coordinates"] = rnd(f["geometry"]["coordinates"])
         g = _clean(f["geometry"])
+        if g is None:  # keep the feature at full resolution rather than losing it (small EEZ slivers, short contour fragments)
+            f_full["geometry"]["coordinates"] = rnd(f_full["geometry"]["coordinates"])
+            g = _clean(f_full["geometry"])
+            f = f_full
         if g is None:
+            dropped += 1
             continue
         f["geometry"] = g
         f["properties"] = {k: (round(v, 1) if isinstance(v, float) else v) for k, v in f["properties"].items()}
@@ -74,7 +84,7 @@ def write(gdf, name, tol_ft=None, cols=None, precision=5):
     gj["features"] = feats
     path = os.path.join(OUT, name)
     json.dump(gj, open(path, "w", encoding="utf-8"), separators=(",", ":"))
-    print(f"{name:26} {len(feats):5} features  {os.path.getsize(path)/1e6:5.2f} MB")
+    print(f"{name:26} {len(feats):5} features  {os.path.getsize(path)/1e6:5.2f} MB" + (f"  ({dropped} dropped)" if dropped else ""))
 
 
 # units with the cable summary joined
