@@ -11,6 +11,7 @@ import geopandas as gpd
 from osgeo import gdal, osr
 import numpy as np
 from PIL import Image
+from shapely.geometry import shape, mapping
 
 P = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 G = os.path.join(P, "output", "gis", "mohawk_west_slope.gpkg")
@@ -78,6 +79,15 @@ def write(gdf, name, tol_ft=None, cols=None, precision=5):
         if g is None:
             dropped += 1
             continue
+        if g["type"] in ("Polygon", "MultiPolygon"):  # rounding can make a thin ring self-touch; a zero-width buffer repairs it
+            sg = shape(g)
+            if not sg.is_valid:
+                sg = sg.buffer(0)
+                if sg.is_empty:
+                    dropped += 1
+                    continue
+                g = mapping(sg)
+                g["coordinates"] = rnd(g["coordinates"])
         f["geometry"] = g
         f["properties"] = {k: (round(v, 1) if isinstance(v, float) else v) for k, v in f["properties"].items()}
         feats.append(f)
