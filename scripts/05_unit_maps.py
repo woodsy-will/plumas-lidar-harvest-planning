@@ -20,7 +20,8 @@ from qgis.core import (QgsLayoutMeasurement, QgsCoordinateTransform, QgsMapLayer
                        QgsLayoutItemPage, QgsCategorizedSymbolRenderer, QgsRendererCategory,
                        QgsSimpleFillSymbolLayer, QgsLinePatternFillSymbolLayer)
 from qgis.core import QgsRenderContext, QgsGeometry, QgsSimpleLineSymbolLayer
-from qgis.PyQt.QtCore import Qt
+from qgis.core import QgsTextBackgroundSettings, QgsSimpleLineCallout, Qgis, QgsLayoutItemMapGrid, QgsLayoutItemShape
+from qgis.PyQt.QtCore import Qt, QSizeF
 from qgis.PyQt.QtGui import QColor, QFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -30,6 +31,7 @@ CRS = QgsCoordinateReferenceSystem("EPSG:2226")
 import datetime
 TITLE = "Mohawk Valley West Slope Unit Planning Map"
 DATE = datetime.date.today().strftime("%B %d, %Y"); SHEET = [1, 1]
+DECL = "12.9 deg E"   # short in the margin; the model, epoch and drift are cited in the sources block
 SUBTITLE = "Demonstration from public data (USGS 3DEP LiDAR 2018, USFS EDW, NHD, BLM). Not a Forest Service proposal."
 
 QgsApplication.setPrefixPath(r"C:\Program Files\QGIS 3.44.12\apps\qgis-ltr", True)
@@ -75,6 +77,37 @@ def cased_outline(inner=(0, 0, 0), outer=(255, 255, 255), wi=1.3, wo=3.0):
     return s
 
 
+def unit_face(fill_rgb, line_rgb, casing=1.5, edge=0.5, hatch_angle=None, hatch_dist=2.4, hatch_lw=0.22):
+    """Filled unit for the overview: method tint, a white casing, then the unit boundary on top. Two units of the same
+    method share an edge, so without the casing the common boundary disappears into the fill; the casing reads as a
+    white seam on both sides and each unit stays a separate figure (Forest Service sale area maps keep the cutting unit
+    boundary as the strongest line on the sheet)."""
+    s = QgsFillSymbol(); s.deleteSymbolLayer(0)
+    face = QgsSimpleFillSymbolLayer(); face.setFillColor(QColor(*fill_rgb)); face.setStrokeStyle(Qt.NoPen); s.appendSymbolLayer(face)
+    if hatch_angle is not None:   # cable units sit in the drainages and a flat blue tint there reads as water; the ruling marks them as treatment
+        pat = QgsLinePatternFillSymbolLayer(); pat.setLineAngle(hatch_angle); pat.setDistance(hatch_dist); pat.setLineWidth(hatch_lw); pat.setColor(QColor(*line_rgb)); s.appendSymbolLayer(pat)
+    cas = QgsSimpleFillSymbolLayer(); cas.setFillColor(QColor(0, 0, 0, 0)); cas.setStrokeColor(QColor(255, 255, 255, 235)); cas.setStrokeWidth(casing); s.appendSymbolLayer(cas)
+    top = QgsSimpleFillSymbolLayer(); top.setFillColor(QColor(0, 0, 0, 0)); top.setStrokeColor(QColor(*line_rgb)); top.setStrokeWidth(edge); s.appendSymbolLayer(top)
+    return s
+
+
+def number_label(layer, size=7.5, callout=True):
+    """Unit number in a circle, the sale-area-map callout. Short labels fit inside narrow units where a two-line
+    'Unit 405 / Cable' block does not, and a leader line carries the few that still have to sit outside."""
+    s = QgsPalLayerSettings(); s.fieldName = "unit_id"; s.isExpression = False; s.enabled = True
+    f = QgsTextFormat(); f.setFont(QFont("Arial", int(size), QFont.Bold)); f.setSize(size); f.setColor(QColor(20, 20, 20))
+    b = f.background(); b.setEnabled(True); b.setType(QgsTextBackgroundSettings.ShapeCircle)
+    b.setFillColor(QColor(255, 255, 255, 235)); b.setStrokeColor(QColor(20, 20, 20)); b.setStrokeWidth(0.25)
+    b.setSizeType(QgsTextBackgroundSettings.SizeBuffer); b.setSize(QSizeF(0.7, 0.7)); b.setSizeUnit(QgsUnitTypes.RenderMillimeters)
+    f.setBackground(b); s.setFormat(f)
+    s.placement = QgsPalLayerSettings.Placement.Horizontal
+    s.setPolygonPlacementFlags(Qgis.LabelPolygonPlacementFlags(Qgis.LabelPolygonPlacementFlag.AllowPlacementInsideOfPolygon | Qgis.LabelPolygonPlacementFlag.AllowPlacementOutsideOfPolygon))
+    if callout:
+        co = QgsSimpleLineCallout(); co.setEnabled(True); co.setLineSymbol(line("40,40,40,200", 0.2))
+        co.setMinimumLength(0.6); co.setMinimumLengthUnit(QgsUnitTypes.RenderMillimeters); s.setCallout(co)
+    layer.setLabelsEnabled(True); layer.setLabeling(QgsVectorLayerSimpleLabeling(s))
+
+
 def line(color, width, style="solid"):
     return QgsLineSymbol.createSimple({"color": color, "width": str(width), "line_style": style, "capstyle": "round"})
 
@@ -99,9 +132,11 @@ classes = [QgsPalettedRasterRenderer.Class(1, QColor(206, 232, 222), "Ground-bas
 ycls.setRenderer(QgsPalettedRasterRenderer(ycls.dataProvider(), 1, classes))
 block = vl(os.path.join(RAW, "aoi.geojson"), None, "Community Protection Block Boundary (USFS)"); block.setSubsetString("role = 'treatment_block'")
 block.renderer().setSymbol(fill("0,0,0,0", "0,0,0,255", 1.2)); block.renderer().symbol().symbolLayer(0).setStrokeStyle(Qt.DashLine)   # sale area boundary: heavy black dash
+forest = vl(os.path.join(RAW, "blm_sma_usfs.geojson"), None, "National Forest (BLM SMA)"); forest.renderer().setSymbol(fill("209,229,209,255", "90,130,95,255", 0.3))
+projects = vl(os.path.join(RAW, "facts_cp_project_areas.geojson"), None, "NEPA Project Areas (USFS EDW)"); projects.renderer().setSymbol(fill("120,140,120,120", "70,90,70,255", 0.3))
 sections = vl(os.path.join(RAW, "plss_sections.geojson"), None, "PLSS Sections (BLM)"); sections.renderer().setSymbol(fill("0,0,0,0", "110,110,110,150", 0.25)); label(sections, "\"FRSTDIVNO\"", 7, "110,110,110", False)
 rca = vl(gpkg, "rca_buffers", "Riparian Conservation Area, SNFPA Widths")
-rca.renderer().setSymbol(fill("0,112,192,38", "0,112,192,90", 0.15))   # mapped only: a pale wash, so it never competes with the units
+rca.renderer().setSymbol(fill("0,112,192,38", "0,112,192,90", 0.15))   # mapped only: a pale wash, so it never competes with the units (any lighter and the legend swatch reads as blank white)
 eez = vl(gpkg, "eez_buffers", "Stream Equipment Exclusion Zone, Netted from Unit Acres")
 eez.renderer().setSymbol(hatch((0, 112, 192), (0, 112, 192), angle=45, dist=1.2, lw=0.2, ow=0.25))
 streams = vl(gpkg, "streams_aoi", "Streams (NHD)")
@@ -125,31 +160,31 @@ cl_f = QgsTextFormat(); cl_f.setFont(QFont("Arial", 7)); cl_f.setSize(7); cl_f.s
 from qgis.core import QgsRuleBasedLabeling
 cl_root = QgsRuleBasedLabeling.Rule(None); cl_rule = QgsRuleBasedLabeling.Rule(cl_s); cl_rule.setFilterExpression("\"index\" = 1"); cl_root.appendChild(cl_rule)
 contours.setLabelsEnabled(True); contours.setLabeling(QgsRuleBasedLabeling(cl_root))
-units = vl(gpkg, "units", "Harvest Unit Boundary by Method"); SHEET[1] = sum(1 for _ in units.getFeatures()) + 1   # overview plus one sheet per unit (featureCount() can be -1 before the provider has counted)
+units = vl(gpkg, "units", "Harvest Unit Boundary by Yarding System"); SHEET[1] = sum(1 for _ in units.getFeatures()) + 1   # overview plus one sheet per unit (featureCount() can be -1 before the provider has counted)
 # method colors: Okabe-Ito vermillion for tractor, blue for cable, green for hand thinning (dark for lines, pale for fills)
 METHOD_COLORS = {"Tractor": ((213, 94, 0), (247, 205, 178)), "Cable": ((0, 90, 170), (176, 208, 234)), "Hand Thinning": ((0, 120, 90), (190, 228, 214))}
 present = {f["method"] for f in units.getFeatures()}
 # unit sheets: cased outline by method, interior open so the slope tint inside the unit stays readable (figure over a receded base)
 ucats = [QgsRendererCategory(m, cased_outline(inner=o, outer=(255, 255, 255), wi=0.9, wo=2.2), m) for m, (o, f_) in METHOD_COLORS.items() if m in present]
-units.setRenderer(QgsCategorizedSymbolRenderer("method", ucats)); label(units, "concat('Unit ', \"unit_id\", '\\n', \"method\")", 9)
+units.setRenderer(QgsCategorizedSymbolRenderer("method", ucats)); number_label(units, 7.5)
 from qgis.core import QgsLabelObstacleSettings
 _ls = units.labeling().settings(); _ob = _ls.obstacleSettings(); _ob.setIsObstacle(True); _ob.setType(QgsLabelObstacleSettings.ObstacleType.PolygonBoundary); _ob.setFactor(2.0); _ls.setObstacleSettings(_ob); units.setLabeling(QgsVectorLayerSimpleLabeling(_ls))   # contour labels avoid unit outlines
-# overview and inset: sale-area-map convention, units filled by method with a dashed dark outline (cutting unit boundary)
-units_plain = vl(gpkg, "units", "Harvest Units by Yarding Method")
-pcats = []
-for m, (o, f_) in METHOD_COLORS.items():
-    if m in present:
-        sym = fill(",".join(str(v) for v in f_) + ",255", ",".join(str(v) for v in o) + ",255", 0.7); sym.symbolLayer(0).setStrokeStyle(Qt.DashLine); pcats.append(QgsRendererCategory(m, sym, m))
-units_plain.setRenderer(QgsCategorizedSymbolRenderer("method", pcats)); label(units_plain, "concat('Unit ', \"unit_id\", '\\n', \"method\")", 8)
-units_inset = vl(gpkg, "units", "units_inset"); units_inset.setRenderer(QgsCategorizedSymbolRenderer("method", [QgsRendererCategory(c.value(), c.symbol().clone(), c.label()) for c in pcats]))
+# overview and inset: sale-area-map convention, units filled by method, each one cased so neighbours of the same method
+# still read as separate cutting units, numbered in a circle with the method in the table and legend
+units_plain = vl(gpkg, "units", "Harvest Units by Yarding System")
+HATCH = {"Cable": 45}   # ruling by method: ground-based units plain, cable units ruled, so method survives a grey print and color-vision deficiency
+pcats = [QgsRendererCategory(m, unit_face(f_ + (255,), o + (255,), hatch_angle=HATCH.get(m)), m) for m, (o, f_) in METHOD_COLORS.items() if m in present]
+units_plain.setRenderer(QgsCategorizedSymbolRenderer("method", pcats)); number_label(units_plain, 7.5)
+units_inset = vl(gpkg, "units", "units_inset")   # same fills, thinner casing: the locator is 55 mm wide and the overview weights would close the gaps
+units_inset.setRenderer(QgsCategorizedSymbolRenderer("method", [QgsRendererCategory(m, unit_face(f_ + (255,), o + (255,), casing=0.45, edge=0.18, hatch_angle=HATCH.get(m), hatch_dist=1.2, hatch_lw=0.12), m) for m, (o, f_) in METHOD_COLORS.items() if m in present]))
 cur = vl(gpkg, "units", "This Unit"); cur.renderer().setSymbol(cased_outline(wi=1.6, wo=3.6))
 have_cable = os.path.exists(cable)
 if have_cable:
-    corr = vl(cable, "corridors", "Feasible Skyline Corridors from Selected Landings, Yarded toward Landing"); corr.setSubsetString("feasible = 1"); corr.renderer().setSymbol(line("0,0,0,170", 0.3))
+    corr = vl(cable, "corridors", "Feasible Skyline Corridors from Selected Landings, Yarded toward Landing"); corr.setSubsetString("feasible = 1"); corr.renderer().setSymbol(line("0,0,0,205", 0.35))   # the corridors are the analysis result on a unit sheet: dark enough to read over the slope tint
     landings = vl(cable, "landings", "Selected Landings on Roads, This Unit"); landings.setSubsetString("corridors_ok > 0")
     landings.renderer().setSymbol(QgsMarkerSymbol.createSimple({"name": "triangle", "color": "240,228,66,255", "outline_color": "0,0,0,255", "size": "2.8"}))
 layers = [cur, units] + ([landings, corr] if have_cable else []) + [roads, tiger, streams, contours, eez, rca, sections, block, relief]
-proj.addMapLayer(units_plain, False); proj.addMapLayer(units_inset, False)
+proj.addMapLayer(units_plain, False); proj.addMapLayer(units_inset, False); proj.addMapLayer(forest, False); proj.addMapLayer(projects, False)
 for l in layers:
     proj.addMapLayer(l, False)
 root = proj.layerTreeRoot()
@@ -196,6 +231,40 @@ def make_layout(name, feat=None, extent=None, scale=None):
     if scale:
         m.setScale(scale)
     layout.addLayoutItem(m)
+    # State Plane grid: ticks in the frame with eastings along the bottom and northings up the left side, so a
+    # position read off a GPS can be put on the paper sheet. Interval is the round number that gives about six
+    # divisions across the 300 mm map at whatever scale the sheet was fitted to.
+    span_ft = m.scale() * (300 / 304.8)
+    iv = min(x for x in (500, 1000, 2000, 2500, 5000, 10000, 20000) if x >= span_ft / 6.5)
+    gr = QgsLayoutItemMapGrid("State Plane grid", m)
+    gr.setEnabled(True); gr.setCrs(CRS); gr.setUnits(QgsLayoutItemMapGrid.MapUnit)
+    gr.setIntervalX(iv); gr.setIntervalY(iv)
+    gr.setStyle(QgsLayoutItemMapGrid.FrameAnnotationsOnly)          # no lines across the map face: the units stay the figure
+    gr.setFrameStyle(QgsLayoutItemMapGrid.InteriorTicks); gr.setFrameWidth(1.6); gr.setFramePenSize(0.2)
+    gr.setAnnotationEnabled(True); gr.setAnnotationPrecision(0)
+    # values in thousands of feet, the USGS quad convention: a seven-digit number inside the frame is wide enough to
+    # print across a unit number, and the first sweep of all 25 sheets caught it doing exactly that
+    gr.setAnnotationFormat(QgsLayoutItemMapGrid.CustomFormat)
+    gr.setAnnotationExpression('format_number(@grid_number / 1000, 0)')
+    gf = QgsTextFormat(); gf.setFont(QFont("Arial", 6)); gf.setSize(6); gf.setColor(QColor(70, 70, 70))
+    gf.buffer().setEnabled(True); gf.buffer().setSize(1.0); gf.buffer().setColor(QColor(255, 255, 255))
+    gr.setAnnotationTextFormat(gf)
+    gr.setAnnotationFrameDistance(0.6)
+    gr.setAnnotationDisplay(QgsLayoutItemMapGrid.LongitudeOnly, QgsLayoutItemMapGrid.Bottom)
+    gr.setAnnotationPosition(QgsLayoutItemMapGrid.InsideMapFrame, QgsLayoutItemMapGrid.Bottom)
+    gr.setAnnotationDirection(QgsLayoutItemMapGrid.Horizontal, QgsLayoutItemMapGrid.Bottom)
+    gr.setAnnotationDisplay(QgsLayoutItemMapGrid.LatitudeOnly, QgsLayoutItemMapGrid.Left)
+    gr.setAnnotationPosition(QgsLayoutItemMapGrid.OutsideMapFrame, QgsLayoutItemMapGrid.Left)   # the page margin is free
+    gr.setAnnotationDirection(QgsLayoutItemMapGrid.VerticalDescending, QgsLayoutItemMapGrid.Left)
+    for border in (QgsLayoutItemMapGrid.Top, QgsLayoutItemMapGrid.Right):
+        gr.setAnnotationDisplay(QgsLayoutItemMapGrid.HideAll, border)   # one set of numbers is enough on a sheet this busy
+    m.grids().addGrid(gr); m.updateBoundingRect()
+    # the grid numbers sit in the bottom of the frame, and a unit number placed hard against that edge printed
+    # straight through one on sheet 110. An invisible strip along the bottom keeps map labels off the numbers;
+    # a unit pushed inward keeps its leader back to its own polygon.
+    guard = QgsLayoutItemShape(layout); guard.setShapeType(QgsLayoutItemShape.Rectangle)
+    guard.attemptMove(QgsLayoutPoint(8, 242.5, QgsUnitTypes.LayoutMillimeters)); guard.attemptResize(QgsLayoutSize(300, 5.5, QgsUnitTypes.LayoutMillimeters))
+    guard.setSymbol(fill("0,0,0,0", "0,0,0,0", 0)); layout.addLayoutItem(guard); m.addLabelBlockingItem(guard)
     add_label(layout, TITLE, 8, 5, 300, 9, 18, True)
     add_label(layout, SUBTITLE + f"   {trs_text(feat.geometry() if feat is not None else None)}", 8, 14, 300, 6, 8)
     # right panel
@@ -228,7 +297,7 @@ def make_layout(name, feat=None, extent=None, scale=None):
         def row(vals, yy, size=7, bold=False):
             for (cx, cw, al), v in zip(cols, vals):
                 add_label(layout, v, px + cx, yy, cw, 5, size, bold, al)
-        row(["Unit", "Method", "Gross ac", "Net ac", "Slope", "Canopy", "Skyline screen"], y, 7, True); y += 5
+        row(["Unit", "System", "Gross ac", "Net ac", "Slope", "Canopy", "Skyline screen"], y, 7, True); y += 5
         tg = tn = 0.0
         for f in sorted(units.getFeatures(), key=lambda x: int(x["unit_id"])):
             dd = dict(zip([x.name() for x in units.fields()], f.attributes())); s = summary.get(int(dd["unit_id"]), {}); tg += round(dd["acres"], 2); tn += round(dd["net_acres"], 2)
@@ -256,15 +325,28 @@ def make_layout(name, feat=None, extent=None, scale=None):
     leg.attemptMove(QgsLayoutPoint(px, ly, QgsUnitTypes.LayoutMillimeters)); leg.attemptResize(QgsLayoutSize(pw, 268 - ly, QgsUnitTypes.LayoutMillimeters)); layout.addLayoutItem(leg)
     sb = QgsLayoutItemScaleBar(layout); sb.setLinkedMap(m); sb.setStyle("Single Box"); sb.setUnits(QgsUnitTypes.DistanceFeet); sb.setUnitLabel("ft"); sb.setNumberOfSegments(2); sb.setNumberOfSegmentsLeft(0); sb.setUnitsPerSegment(500 if scale and scale <= 6000 else 1000 if scale and scale <= 12000 else 2000)
     sb.setHeight(2.5); sb.setLabelBarSpace(1); sb.attemptMove(QgsLayoutPoint(10, 250, QgsUnitTypes.LayoutMillimeters)); layout.addLayoutItem(sb)
-    add_label(layout, f"Scale 1:{int(round(m.scale())):,}   Contours 40 ft   Grid north, CA State Plane Zone 2", 148, 251, 92, 6, 7)
+    add_label(layout, f"Scale 1:{int(round(m.scale())):,}   Contours 40 ft   Grid north, CA State Plane Zone 2, ticks in 1,000 ft", 140, 251, 100, 6, 7)
     add_label(layout, f"Sheet {SHEET[0]} of {SHEET[1]}   {DATE}", 250, 251, 56, 6, 8, False, Qt.AlignRight); add_label(layout, "N", 247.8, 250.3, 5, 5, 7, True)
+    add_label(layout, f"MN {DECL}", 233, 256.2, 22, 4, 6, False, Qt.AlignHCenter)   # declination under the north arrow, where a compass user looks for it
     north = QgsLayoutItemPicture(layout); north.setPicturePath(os.path.join(QgsApplication.prefixPath(), "svg", "arrows", "NorthArrow_04.svg")); north.attemptMove(QgsLayoutPoint(240.5, 248.5, QgsUnitTypes.LayoutMillimeters)); north.attemptResize(QgsLayoutSize(7, 7.5, QgsUnitTypes.LayoutMillimeters)); layout.addLayoutItem(north)
     if feat is not None:
-        ins = QgsLayoutItemMap(layout); ins.setKeepLayerSet(True); ins.setLayers([cur, units_inset, block, hill]); ins.setCrs(CRS); ins.attemptMove(QgsLayoutPoint(251, 211, QgsUnitTypes.LayoutMillimeters)); ins.attemptResize(QgsLayoutSize(55, 35, QgsUnitTypes.LayoutMillimeters)); ins.setBackgroundEnabled(True); ins.setBackgroundColor(QColor(255, 255, 255)); ins.zoomToExtent(block_ext.buffered(1500)); ins.setFrameEnabled(True); ins.setFrameStrokeWidth(QgsLayoutMeasurement(0.5, QgsUnitTypes.LayoutMillimeters)); ins.setFrameStrokeColor(QColor(0, 0, 0)); m.addLabelBlockingItem(ins); ins.refresh()   # locator in the map corner so the panel legend can run to the footer; ins.zoomToExtent(block_ext.buffered(1500)); ins.setFrameEnabled(True)
+        ins = QgsLayoutItemMap(layout); ins.setKeepLayerSet(True); ins.setLayers([cur, units_inset, block, hill]); ins.setCrs(CRS); ins.attemptMove(QgsLayoutPoint(251, 206, QgsUnitTypes.LayoutMillimeters)); ins.attemptResize(QgsLayoutSize(55, 35, QgsUnitTypes.LayoutMillimeters)); ins.setBackgroundEnabled(True); ins.setBackgroundColor(QColor(255, 255, 255)); ins.zoomToExtent(block_ext.buffered(1500)); ins.setFrameEnabled(True); ins.setFrameStrokeWidth(QgsLayoutMeasurement(0.5, QgsUnitTypes.LayoutMillimeters)); ins.setFrameStrokeColor(QColor(0, 0, 0)); m.addLabelBlockingItem(ins); ins.refresh()   # locator in the map corner so the panel legend can run to the footer; ins.zoomToExtent(block_ext.buffered(1500)); ins.setFrameEnabled(True)
         ov = QgsLayoutItemMapOverview("cur", ins); ov.setLinkedMap(m); ov.setFrameSymbol(fill("255,0,0,40", "255,0,0,255", 0.5)); ins.overviews().addOverview(ov); layout.addLayoutItem(ins)
+    else:
+        # the overview sheet had no locator at all: a reader could not place the block without reading the title.
+        # Vicinity map in the empty west corner, block in red inside the Plumas National Forest and its project areas.
+        vic = QgsLayoutItemMap(layout); vic.setKeepLayerSet(True); vic.setLayers([block, projects, forest]); vic.setCrs(CRS)   # no roads: at forest scale the TIGER network is a hairball and buries the project areas
+        vic.attemptMove(QgsLayoutPoint(12, 26, QgsUnitTypes.LayoutMillimeters)); vic.attemptResize(QgsLayoutSize(58, 46, QgsUnitTypes.LayoutMillimeters))
+        vic.setBackgroundEnabled(True); vic.setBackgroundColor(QColor(255, 255, 255))
+        fx = forest.extent(); ct = QgsCoordinateTransform(forest.crs(), CRS, proj); fx = ct.transformBoundingBox(fx)
+        vic.zoomToExtent(fx.buffered(3000))
+        vic.setFrameEnabled(True); vic.setFrameStrokeWidth(QgsLayoutMeasurement(0.5, QgsUnitTypes.LayoutMillimeters)); vic.setFrameStrokeColor(QColor(0, 0, 0))
+        m.addLabelBlockingItem(vic); vic.refresh(); layout.addLayoutItem(vic)
+        vov = QgsLayoutItemMapOverview("block", vic); vov.setLinkedMap(m); vov.setFrameSymbol(fill("255,0,0,60", "255,0,0,255", 0.6)); vic.overviews().addOverview(vov)
+        add_label(layout, "Vicinity: Plumas National Forest", 12, 72.4, 58, 4, 6)
     add_label(layout, "Sources: USGS 3DEP CA_NoCAL_Wildfires_PlumasNF 2018 (QL1); USFS EDW Activity Project Areas and Road Core; USGS NHD, 1:24,000; BLM SMA and PLSS; Census TIGER roads. "
-                      "CA State Plane Zone 2, NAD83, US ft. LiDAR flown 2018; roads, NEPA areas, ownership and hydrography as downloaded Sept 2026. Units delineated by the rules in docs/methods.md. "
-                      "Planning map, not a proposal; no field verification. Wildlife, cultural and soils constraints not modeled. Symbology after Forest Service sale area maps (heavy dashed sale boundary, units over a light base), Okabe-Ito color-blind-safe palette, USGS hydrography and contour conventions. "
+                      "CA State Plane Zone 2, NAD83, US ft; grid ticks at the interval in the scale line. Magnetic declination from NOAA WMM-2025 at the block centre for September 2026, changing -0.1 deg per year. LiDAR flown 2018; roads, NEPA areas, ownership and hydrography as downloaded Sept 2026. Units delineated by the rules in docs/methods.md. "
+                      "Planning map, not a proposal; no field verification. Wildlife, cultural and soils constraints not modeled. Symbology after Forest Service sale area maps: heavy dashed sale-area boundary, cased cutting-unit boundaries, unit numbers in circles with leaders, units over a light base, Okabe-Ito color-blind-safe palette, USGS hydrography and contour conventions. "
                       "GeoPDF copy of this sheet (output/maps/geopdf) opens in Avenza Maps with field position.",
               8, 262, 300, 14, 7)
     add_label(layout, "William Steinley, github.com/woodsy-will/plumas-lidar-harvest-planning", px, 266.5, pw, 6, 7, True, Qt.AlignRight)

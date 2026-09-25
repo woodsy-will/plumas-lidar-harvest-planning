@@ -171,7 +171,9 @@ The symbology was reworked against published guidance and a current Forest Servi
 
 | Element | Choice | Basis |
 |---|---|---|
-| Visual hierarchy | The units are the figure: cased outlines colored by method with bold labels; everything else recedes. Overview uses pale method fills with a dashed dark outline, the cutting-unit convention. | Willamette NF LFC SBA sale area map (2025): units as the only filled features, heavy dashed sale boundary, grey base; Esri design principles on figure-ground and contrast |
+| Visual hierarchy | The units are the figure: cased outlines colored by method, everything else recedes. The overview fills units by method and cases every unit boundary in white, so two neighbouring units of the same method still read as separate cutting units instead of one mass. | Willamette NF JC and LFC SBA sale area maps: units as the only filled features, heavy dashed sale boundary, grey base; Esri design principles on figure-ground, contrast and line casing |
+| Unit labels | Unit number in a circle, placed inside the unit where it fits and on a leader where it does not; method comes from the fill and the unit table | Willamette NF JC sale area map, where every cutting unit carries a circled number and the acres sit in a side table; a two-line `Unit 405 / Cable` block does not fit the narrow drainage units and drifted into the neighbour |
+| Cable units | On the overview and locator, where units are filled, the pale blue fill is ruled at 45 degrees; the unit sheets leave unit interiors open, so there the method is carried by the cased outline colour alone | The cable units follow the drainages, where a flat blue tint reads as water next to the riparian wash; ruling also carries method in a grey print and under color-vision deficiency. Value and pattern by yarding system follows the JC sale area map (light grey tractor, dark grey skyline) |
 | Sale boundary | Heavy black long dash | Same sale area map; a line pattern reads under any color vision |
 | Relief base | Multidirectional hillshade multiplied into pale class tints once in `02c_relief_tint.py`; shadows held to 62 % luminosity, tints desaturated | Patterson (shadedrelief.com): shadows no darker than 70 %, muted colors so relief does not muddy the map; Esri: base at 30 to 50 % strength; empirical overlay study (opacity 20 to 70 % acceptable, outlines extend the range) |
 | Why one composed raster | Blending translucent fills in the layout produced third colors (blue over yellow read as green) and would have forced the PDF export to raster | Jenny and Kelso 2007 on redundant variables and confusable blends; measured in this project |
@@ -179,8 +181,11 @@ The symbology was reworked against published guidance and a current Forest Servi
 | Hydrography | USGS blue; perennial solid, intermittent dash-dot, ephemeral dotted; riparian conservation areas as a pale wash; equipment exclusion zones as a fine hatch inside units | USGS topographic map symbol standard; class carried by line pattern, not hue |
 | Contours | USGS brown, 40 ft with 200 ft index, held to low opacity | USGS standard (brown, index heavier); hierarchy |
 | Roads | System roads as a cased dark line with the road number; local roads thin grey dash | USGS road classes; sale area map road numbers |
-| Corridors and landings | Thin neutral black corridors, yellow triangle landings with black edge | Avoids a second blue family next to hydrography |
-| Marginalia | Scale statement, contour interval, north reference, sheet number and date beside the bar scale | Standard map elements; sale area map title block |
+| Corridors and landings | Thin neutral black corridors, yellow triangle landings with black edge | Avoids a second blue family next to hydrography; the corridors are the result on a unit sheet, so they are drawn dark enough to read over the slope tint |
+| Web overlay extent | The yarding-class raster is clipped to the units and a 500 ft margin | Over a topographic basemap the full DTM footprint reads as a hard-edged rectangle of colour across ground nobody proposed to treat |
+| Marginalia | Scale statement, contour interval, north reference, magnetic declination, sheet number and date beside the bar scale | NWCG PMS 936 map elements (STANDL-SGD: scale, title, author, north arrow, date, legend, source, grid, disclaimer); sale area map title block. Declination 12.9 deg E at the block centre for September 2026, NOAA WMM-2025, changing -0.1 deg per year |
+| Coordinate grid | State Plane Zone 2 ticks in the map frame, values in thousands of feet: eastings along the bottom inside the frame, northings outside the left frame, interval the round number nearest one sixth of the map width at that sheet's scale. A blocking strip along the bottom of the frame keeps unit numbers off the easting labels | The grid element of STANDL-SGD, so a GPS position can be placed on the paper sheet; ticks rather than lines across the face keep the units the figure |
+| Vicinity map | Overview sheet carries a locator of the Plumas National Forest with the NEPA project areas and the block in red | NWCG and USGS practice: the reader should be able to place the sheet without reading the title. The unit sheets already carried a locator of the block |
 
 ## Canopy height model and pits
 
@@ -247,21 +252,21 @@ the measurements below come from reading the files back with PyMuPDF, GDAL and P
 
 | Item | Standard | This project |
 |---|---|---|
-| Print PDF | text and linework vector, rasters at 300 dpi, fonts embedded | unit sheets and overview: vector text (Arial embedded), 5 raster images at 300 dpi, 4.4 to 13.6 MB per unit sheet (median about 6.7 MB), 5.4 MB for the overview |
+| Print PDF | text and linework vector, rasters at 300 dpi, fonts embedded | unit sheets and overview: vector text (Arial embedded), 5 raster images at 300 dpi, 4.7 to 14.4 MB per unit sheet (median about 7.1 MB), 7.0 MB for the overview |
 | Field PDF | georeferenced; Avenza reduces maps over 4 Mpx to 150 dpi and over 12 Mpx to 72 dpi on import | `output/maps/geopdf`: QGIS GeoPDF at 200 dpi (4.2 Mpx map raster, under the 12 Mpx step); the print PDFs also carry ISO 32000 georeferencing |
 | Figures | 300 dpi for publication | all cable figures, route tables and profiles at 300 dpi; corridor maps and quicklooks at 200 dpi |
 | Web previews | sRGB, about 2,000 to 2,500 px long edge, JPEG quality 85 to 90 | 1,870 px map previews, 2,400 px figure previews, quality 88, 4:4:4 chroma so thin colored lines stay crisp |
 | Text contrast | WCAG 2.2 AA: 4.5:1 for text, 3:1 for graphics | every text and background pair measured is 5.4:1 or better; map text on the hillshade tints 8.8:1 |
-| Color vision | categories distinguishable under protan, deutan and tritan simulation | Okabe-Ito palette throughout; unit interiors are left open under a cased outline instead of filled with a translucent color, because a blue fill over the yellow marginal tint blended to a green only 9 CIE76 units from the ground-based tint; the overview, which carries no relief tint, uses opaque pale method fills; the current-unit outline is black with a white casing because red on orange collapsed to 1.7 units under protan simulation |
-| Type size | 6 pt minimum, 8 pt preferred on printed maps | smallest map text 6 pt (contour elevation labels), footer and overview unit table 7 pt, legend 7.5 pt, unit panel 9 pt |
+| Color vision | categories distinguishable under protan, deutan and tritan simulation | Okabe-Ito palette throughout; unit interiors are left open under a cased outline instead of filled with a translucent color, because a blue fill over the yellow marginal tint blended to a green only 9 CIE76 units from the ground-based tint; the overview, which carries no relief tint, uses opaque pale method fills with the cable units ruled, so the yarding system survives a grey print as well as protan or deutan vision; the current-unit outline is black with a white casing because red on orange collapsed to 1.7 units under protan simulation |
+| Type size | 6 pt minimum, 8 pt preferred on printed maps | smallest map text 6 pt (contour elevation labels), unit numbers and legend 7.5 pt, footer and overview unit table 7 pt, unit panel 9 pt |
 | Metadata | title and author in the document, ISO / FGDC summary for GIS data | PDF document title and author set; GeoPackage carries layer descriptions and a project metadata table |
 
-The merged map series (about 191 MB at 300 dpi) and the GeoPDF folder are kept out of git and attached to the
+The merged map series (about 193 MB at 300 dpi) and the GeoPDF folder are kept out of git and attached to the
 release instead.
 
 ## Colors, metadata and deliverables
 
-Every categorical color on the maps and figures (yarding method, yarding class, uphill / downhill,
+Every categorical color on the maps and figures (yarding system, yarding class, uphill / downhill,
 difficulty, QA flags) is drawn from the Okabe-Ito color-blind-safe palette. The unit sheets and overview
 are exported twice: a print PDF with vector text and 300 dpi rasters, and a georeferenced GeoPDF at 200 dpi
 for Avenza Maps. QGIS rasterizes the whole sheet for GeoPDF, so the two cannot be one file. Each sheet

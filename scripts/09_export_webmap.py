@@ -122,7 +122,13 @@ plots = gpd.read_file(G, layer="plots"); write(plots, "plots.geojson", cols=["pl
 # yarding class overlay: warp to EPSG:3857, 4-colour palette PNG with transparency, bounds in WGS84
 src = os.path.join(P, "output", "gis", "yarding_class.tif")
 tmp = os.path.join(OUT, "_yc3857.tif")
-gdal.Warp(tmp, src, dstSRS="EPSG:3857", xRes=6, yRes=6, resampleAlg="near", dstNodata=0)
+# clip to the units plus a 500 ft margin: over a topographic basemap the full DTM footprint reads as a hard-edged
+# rectangle of colour across ground nobody proposed to treat, and the classes only mean anything next to the units
+cut = os.path.join(OUT, "_ycmask.geojson")
+gpd.GeoDataFrame(geometry=[gpd.read_file(G, layer="units").to_crs(CRS_FT).buffer(500).union_all()], crs=CRS_FT).to_file(cut, driver="GeoJSON")
+gdal.Warp(tmp, src, dstSRS="EPSG:3857", xRes=6, yRes=6, resampleAlg="near", dstNodata=0,
+          cutlineDSName=cut, cropToCutline=True)
+os.remove(cut)
 ds = gdal.Open(tmp); a = ds.GetRasterBand(1).ReadAsArray(); gt = ds.GetGeoTransform(); w, h = ds.RasterXSize, ds.RasterYSize
 rgba = np.zeros((h, w, 4), dtype=np.uint8)
 pal = {1: (166, 206, 189, 150), 2: (240, 228, 150, 160), 3: (241, 176, 140, 170)}   # ground-based, marginal, cable (pale Okabe tints)

@@ -134,7 +134,7 @@ units fall short of 20 plots; the measured-tree count by species is reported on 
 
 ### Standards followed
 
-Map layout follows Forest Service sale area maps: units colored by yarding method (pale fills with a dashed dark
+Map layout follows Forest Service sale area maps: units colored by yarding system (pale fills with a cased dark
 outline on the overview, cased outlines on the unit sheets), treatment block boundary, streamcourse protection,
 roads with numbers, 40 ft contours with 200 ft index, PLSS with township and range, unit table, 11x17, as
 vector print PDF (300 dpi rasters) and as GeoPDF for Avenza. Symbology was reworked against a current Forest

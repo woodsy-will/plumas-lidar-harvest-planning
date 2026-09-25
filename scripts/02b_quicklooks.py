@@ -30,9 +30,11 @@ def read(name):
 
 hill, ext = read("hillshade.tif"); hill = np.where(hill == 0, np.nan, hill)
 rings = []
+labels = []   # unit number at the polygon's point on surface, so these figures can be read against the map sheets
 pds = ogr.Open(os.path.join(WORK, "planning.gpkg")); punits = pds.GetLayerByName("units")
 for f in punits:
     g = f.GetGeometryRef()
+    pt = g.PointOnSurface(); labels.append((pt.GetX(), pt.GetY(), str(f.GetField("unit_id"))))
     for poly in ([g.GetGeometryRef(i) for i in range(g.GetGeometryCount())] if g.GetGeometryName() == "MULTIPOLYGON" else [g]):
         r = poly.GetGeometryRef(0); rings.append(([r.GetPoint_2D(i)[0] for i in range(r.GetPointCount())], [r.GetPoint_2D(i)[1] for i in range(r.GetPointCount())]))
 
@@ -46,6 +48,9 @@ def frame(title):
 def finish(fig, ax, name, note=""):
     for xs, ys in rings:
         ax.plot(xs, ys, color="k", lw=0.6)
+    for x, y, t in labels:
+        ax.text(x, y, t, fontsize=6.5, ha="center", va="center", color="k", zorder=5,
+                bbox=dict(boxstyle="circle,pad=0.25", facecolor="white", edgecolor="k", linewidth=0.5, alpha=0.9))
     ax.set_xlim(ext[0], ext[1]); ax.set_ylim(ext[2], ext[3]); ax.set_xticks([]); ax.set_yticks([])
     # scale bar: one mile, and a north arrow
     x0 = ext[0] + (ext[1] - ext[0]) * 0.04; y0 = ext[2] + (ext[3] - ext[2]) * 0.04
