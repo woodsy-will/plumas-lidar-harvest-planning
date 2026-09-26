@@ -3,7 +3,7 @@ Plane feet and rounded, plus a yarding-class PNG overlay warped to Web Mercator 
 
 Usage:  python-qgis-ltr.bat scripts/09_export_webmap.py [OUT_DIR]
 
-OUT_DIR defaults to ../woodsy-will.github.io/projects/plumas-lidar-harvest-planning/map/data next to this repository.
+OUT_DIR defaults to ../williamsteinley.github.io/projects/plumas-lidar-harvest-planning/map/data next to this repository.
 Read-only on the project; writes only to OUT_DIR.
 """
 import os, sys, json, csv
@@ -15,7 +15,7 @@ from shapely.geometry import shape, mapping
 
 P = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 G = os.path.join(P, "output", "gis", "mohawk_west_slope.gpkg")
-OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(P), "woodsy-will.github.io", "projects", "plumas-lidar-harvest-planning", "map", "data")
+OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(P), "williamsteinley.github.io", "projects", "plumas-lidar-harvest-planning", "map", "data")
 os.makedirs(OUT, exist_ok=True)
 gdal.UseExceptions()
 CRS_FT = 2226  # CA State Plane Zone 2, US ft: simplify tolerances are in feet, so every layer is projected here first

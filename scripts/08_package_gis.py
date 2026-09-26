@@ -50,7 +50,7 @@ meta = [
     ("lidar", "USGS 3DEP CA_NoCAL_Wildfires_PlumasNF_B2_2018, QL1, flown 2018; read from the USGS Entwine copy; ~650 million points over 3,948 ac"),
     ("vector_sources", "USFS EDW Activity Project Areas and Road Core; BLM Surface Management Agency and CadNSDI PLSS; USGS NHD (1:24,000); Census TIGER roads (TIGER2024); all downloaded September 2026"),
     ("accuracy", "DTM at 3 ft cells from class 2 returns; planning slope from a 15 ft smoothed DTM averaged over 99 ft. Unit boundaries are model output, not surveyed lines. NHD stream classes are unverified."),
-    ("lineage", "scripts 01 to 08 in github.com/woodsy-will/plumas-lidar-harvest-planning; rules and thresholds in docs/methods.md"),
+    ("lineage", "scripts 01 to 08 in github.com/williamsteinley/plumas-lidar-harvest-planning; rules and thresholds in docs/methods.md"),
     ("constraints", "Public-domain inputs. Units, corridors and plots are demonstration products and must not be used for operations."),
 ]
 cur.executemany("INSERT OR REPLACE INTO project_metadata VALUES (?, ?)", meta); con.commit(); con.close()

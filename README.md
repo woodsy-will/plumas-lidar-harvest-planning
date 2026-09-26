@@ -10,7 +10,7 @@ I worked on federal timber sales of this kind for a contractor in this landscape
 the contractor and the Forest Service and none of them appear here. Every number here was computed from public sources by the scripts in [`scripts/`](scripts/). The units are demonstration polygons drawn by the rules in
 [`docs/methods.md`](docs/methods.md). They are not a Forest Service proposal. No field verification has been done.
 
-Interactive map: https://woodsy-will.github.io/projects/plumas-lidar-harvest-planning/map/ (units, skyline corridors, landings, exclusion zones, yarding class and simulated plots, on USGS basemaps).
+Interactive map: https://williamsteinley.github.io/projects/plumas-lidar-harvest-planning/map/ (units, skyline corridors, landings, exclusion zones, yarding class and simulated plots, on USGS basemaps).
 
 ![Unit 404 sheet: LiDAR hillshade with yarding-class tints, cased unit outlines, stream exclusion zones, skyline corridors from four landings, legend and unit panel](output/previews/map_Unit_404.jpg)
 
@@ -160,7 +160,7 @@ Details and citations in [`docs/methods.md`](docs/methods.md).
 
 The large deliverables (the merged map series, the GeoPDFs, the individual print sheets, the 300 dpi cable
 figures and the packaged rasters) are attached to the
-[v1.1 release](https://github.com/woodsy-will/plumas-lidar-harvest-planning/releases/tag/v1.1) and kept
+[v1.1 release](https://github.com/williamsteinley/plumas-lidar-harvest-planning/releases/tag/v1.1) and kept
 out of git. JPEG previews of everything are in [`output/previews`](output/previews).
 
 | Folder | Contents |
@@ -208,7 +208,7 @@ set PY="C:\Program Files\QGIS 3.44.12\bin\python-qgis-ltr.bat"
 %PY% scripts\05_unit_maps.py         & rem ONLY_UNITS="404 101" renders a subset
 %PY% scripts\06_review_sheets.py
 %PY% scripts\07_previews.py & %PY% scripts\08_package_gis.py
-%PY% scripts\09_export_webmap.py     & rem web-map GeoJSON and yarding-class overlay to ..\woodsy-will.github.io (or OUT_DIR)
+%PY% scripts\09_export_webmap.py     & rem web-map GeoJSON and yarding-class overlay to ..\williamsteinley.github.io (or OUT_DIR)
 ```
 
 `02_build_terrain.py --derivatives-only` rebuilds the mosaics and every derived raster from the per-batch PDAL
@@ -225,7 +225,7 @@ the scripts reference the QGIS install path and the Windows Fonts folder for Ari
 Code: MIT ([`LICENSE`](LICENSE)). Maps, figures, review sheets and packaged data: CC BY 4.0 ([`LICENSE-MAPS-DATA.md`](LICENSE-MAPS-DATA.md)),
 which also lists the terms of each public input. Cite with [`CITATION.cff`](CITATION.cff) or as:
 William Steinley (2026), *Mohawk Valley West Slope: LiDAR-based harvest-unit planning*, v1.1,
-https://github.com/woodsy-will/plumas-lidar-harvest-planning. Contact: through https://woodsy-will.github.io/.
+https://github.com/williamsteinley/plumas-lidar-harvest-planning. Contact: through https://williamsteinley.github.io/.
 
 ## Limitations
 

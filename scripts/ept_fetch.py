@@ -21,7 +21,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WORK = os.path.join(ROOT, "data", "work"); NODES = os.path.join(ROOT, "data", "raw", "ept"); os.makedirs(NODES, exist_ok=True); os.makedirs(WORK, exist_ok=True)
 PROJECT = "CA_NoCAL_Wildfires_PlumasNF_B2_2018"
 BASE = f"https://s3-us-west-2.amazonaws.com/usgs-lidar-public/{PROJECT}/"
-UA = {"User-Agent": "plumas-lidar-harvest-planning (github.com/woodsy-will)"}
+UA = {"User-Agent": "plumas-lidar-harvest-planning (github.com/williamsteinley)"}
 
 
 def get(url, timeout=300):

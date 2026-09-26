@@ -10,7 +10,7 @@ data in `data/work` are licensed under the Creative Commons Attribution 4.0 Inte
 Attribution line to use:
 
 > William Steinley (2026). Mohawk Valley West Slope: LiDAR-based harvest-unit planning.
-> https://github.com/woodsy-will/plumas-lidar-harvest-planning. CC BY 4.0.
+> https://github.com/williamsteinley/plumas-lidar-harvest-planning. CC BY 4.0.
 
 The public inputs in `data/raw` keep their own terms: USGS 3DEP lidar and the Entwine copy on AWS
 Open Data (public domain), USFS Enterprise Data Warehouse layers (CC0; not intended for legal

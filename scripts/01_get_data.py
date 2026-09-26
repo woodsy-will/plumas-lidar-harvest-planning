@@ -20,7 +20,7 @@ from osgeo import gdal, ogr, osr
 osr.UseExceptions()
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAW = os.path.join(ROOT, "data", "raw"); LAZ = os.path.join(RAW, "laz"); os.makedirs(LAZ, exist_ok=True)
-UA = {"User-Agent": "plumas-lidar-harvest-planning (github.com/woodsy-will)"}
+UA = {"User-Agent": "plumas-lidar-harvest-planning (github.com/williamsteinley)"}
 TIGER = "https://www2.census.gov/geo/tiger/TIGER{year}/ROADS/tl_{year}_06063_roads.zip"      # Plumas County, FIPS 06063
 ANCHOR = (-120.60, 39.72)      # Whitehawk Ranch, Clio (lon, lat)
 SEARCH = [-120.78, 39.60, -120.50, 39.82]

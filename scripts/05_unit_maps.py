@@ -349,7 +349,7 @@ def make_layout(name, feat=None, extent=None, scale=None):
                       "Planning map, not a proposal; no field verification. Wildlife, cultural and soils constraints not modeled. Symbology after Forest Service sale area maps: heavy dashed sale-area boundary, cased cutting-unit boundaries, unit numbers in circles with leaders, units over a light base, Okabe-Ito color-blind-safe palette, USGS hydrography and contour conventions. "
                       "GeoPDF copy of this sheet (output/maps/geopdf) opens in Avenza Maps with field position.",
               8, 262, 300, 14, 7)
-    add_label(layout, "William Steinley, github.com/woodsy-will/plumas-lidar-harvest-planning", px, 266.5, pw, 6, 7, True, Qt.AlignRight)
+    add_label(layout, "William Steinley, github.com/williamsteinley/plumas-lidar-harvest-planning", px, 266.5, pw, 6, 7, True, Qt.AlignRight)
     return layout, m
 
 

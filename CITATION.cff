@@ -7,8 +7,8 @@ authors:
     given-names: William
 version: "1.1"
 date-released: 2026-09-25
-url: https://github.com/woodsy-will/plumas-lidar-harvest-planning
-repository-code: https://github.com/woodsy-will/plumas-lidar-harvest-planning
+url: https://github.com/williamsteinley/plumas-lidar-harvest-planning
+repository-code: https://github.com/williamsteinley/plumas-lidar-harvest-planning
 license: MIT
 keywords:
   - lidar
